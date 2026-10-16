@@ -21,6 +21,8 @@
   --amber: #d99b15; --ok: #2f7a4d; --warn: #8a5a00; --err: #a62f1c;
   --err-bg: #f7e6e2; --warn-bg: #f8efd9;
   --piece: #3a6f9c; --reuse: #bcdcc7; --scrap: #cfd4d9;
+  /* Línea de corte entre piezas de un caño (ancho en px, color oscuro). */
+  --cut: #16191c; --cut-line: 2px;
   --radius: 8px;
   font-family: Bahnschrift, "DIN Alternate", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
   color: var(--ink);
@@ -162,13 +164,15 @@ table.grid { border-collapse: collapse; width: 100%; font-size: .9rem; }
 .bin-bar { display: flex; width: 100%; height: 2.6rem; margin: .4rem 0; border: 1px solid var(--ink); background: #fff; overflow: hidden; }
 .seg { display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; min-width: 0; line-height: 1.05; }
 .seg b { font-size: .72rem; } .seg small { font-size: .66rem; opacity: .85; }
-.seg-piece { background: var(--piece); color: #fff; border-right: 1px solid var(--card); }
-.seg-kerf { background: var(--amber); } .seg-trim { background: var(--err); }
+.seg-piece { background: var(--piece); color: #fff; border-right: var(--cut-line) solid var(--cut); }
+.seg-kerf { background: var(--amber); min-width: 6px; border-left: var(--cut-line) solid var(--cut); border-right: var(--cut-line) solid var(--cut); }
+.seg-trim { background: var(--err); border-right: var(--cut-line) solid var(--cut); }
 .seg-reuse { background: var(--reuse); color: var(--ink); }
 /* Color plano y no rayado: el PDF rasteriza esta misma barra y html2canvas no
    dibuja `repeating-linear-gradient`, así que el sobrante chico se pinta liso. */
 .seg-scrap { background: var(--scrap); color: var(--ink); }
 .sw.seg-piece { background: var(--piece); } .sw.seg-kerf { background: var(--amber); }
+.sw.seg-cut { background: var(--cut); } .sw.seg-reuse { background: var(--reuse); } .sw.seg-scrap { background: var(--scrap); }
 .bin-items { display: flex; flex-wrap: wrap; gap: .25rem .9rem; list-style: none; padding: 0; margin: .2rem 0; font-size: .88rem; }
 .bin-loss { margin: .2rem 0 0; font-size: .88rem; color: var(--muted); }
 .bin-loss b { color: var(--ink); }
@@ -224,6 +228,8 @@ table.grid { border-collapse: collapse; width: 100%; font-size: .9rem; }
 .worksheet .bin-bar { height: 6mm; margin: .2rem 0; border-color: #555; }
 .worksheet .seg { line-height: 1; }
 .worksheet .seg b { font-size: 6.5pt; }
+/* En papel la barra es más chica: el sector de disco necesita un mínimo más ancho. */
+.worksheet .seg-kerf { min-width: 8px; }
 /* Las medidas van en la línea de piezas: dentro de una barra de 6 mm no entran. */
 .worksheet .seg small { display: none; }
 /* Bloques en que se divide la hoja de taller para el PDF (uno por página A4). */

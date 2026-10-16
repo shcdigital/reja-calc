@@ -31,6 +31,7 @@ describe('Hoja de taller (plan de cortes)', () => {
     // Leyenda de colores y el sobrante final de cada caño.
     expect(html).toContain('sw seg-piece');
     expect(html).toContain('seg-reuse');
+    expect(html).toContain('Línea de corte');
     expect(html).toContain('Sobrante final:');
     // Identificación de cada caño y sus piezas.
     expect(html).toContain('Caño comercial 1');
