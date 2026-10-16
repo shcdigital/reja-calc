@@ -3,12 +3,11 @@ import { catalog, makeConfig } from '../core/helpers';
 import { computeObra, createObra, DEFAULT_BUDGET } from '../core/obra';
 import { computeBudget } from '../core/budget';
 import { obraFileName } from '../core/document';
-import { buildObraPdfBlob, obraPdfFile } from './pdf';
+import { buildObraPdfBlob, obraPdfFile, planSlices } from './pdf';
 import type { Obra, Reja } from '../core/types';
 
 /** jsPDF falso: registra hojas y textos, sin tocar el navegador. */
 const fake = vi.hoisted(() => ({ pages: 1, texts: [] as string[], forged: 0 }));
-
 vi.mock('jspdf', () => {
   class FakeJsPDF {
     private count = 1;
@@ -79,5 +78,25 @@ describe('PDF de la obra', () => {
     expect(file.type).toBe('application/pdf');
     expect(file.name).toBe(obraFileName(obra));
     expect(file.size).toBeGreaterThan(0);
+  });
+});
+
+describe('Corte de la hoja en hojas A4', () => {
+  it('corta cada 1000 px cuando no hay bordes de bloque', () => {
+    expect(planSlices(2500, 1000)).toEqual([[0, 1000], [1000, 2000], [2000, 2500]]);
+  });
+
+  it('corta en el borde de bloque que entra, para no partir una barra al medio', () => {
+    // Una barra termina en 940: la hoja corta ahí en vez de a 1000 (que caería dentro de la siguiente).
+    expect(planSlices(2500, 1000, [940, 1940])).toEqual([[0, 940], [940, 1940], [1940, 2500]]);
+  });
+
+  it('ignora los bordes que dejan una franja demasiado corta', () => {
+    // Un borde a 200 dejaría sólo un 20 % de hoja: se prefiere el corte lleno.
+    expect(planSlices(3000, 1000, [200, 900])).toEqual([[0, 900], [900, 1900], [1900, 2900], [2900, 3000]]);
+  });
+
+  it('nunca deja una franja vacía si hay un borde justo en el corte', () => {
+    expect(planSlices(2000, 1000, [1000, 2000, 0, -5])).toEqual([[0, 1000], [1000, 2000]]);
   });
 });

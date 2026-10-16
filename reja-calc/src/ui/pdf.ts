@@ -163,11 +163,34 @@ export function splitWorksheetIntoPages(root: HTMLElement): HTMLElement[] {
 }
 
 /** Corta un canvas alto en franjas que entran a lo alto en una hoja A4. */
-export function sliceCanvas(source: HTMLCanvasElement, maxHeightPx: number): HTMLCanvasElement[] {
-  const out: HTMLCanvasElement[] = [];
+export function planSlices(height: number, maxHeightPx: number, breaks: number[] = []): Array<[number, number]> {
   const step = Math.max(1, Math.floor(maxHeightPx));
-  for (let y = 0; y < source.height; y += step) {
-    const h = Math.min(step, source.height - y);
+  const safe = [...new Set(breaks)].filter((b) => b > 0 && b < height).sort((a, b) => a - b);
+  const out: Array<[number, number]> = [];
+  let y = 0;
+  while (y < height) {
+    const limit = Math.min(y + step, height);
+    let end = limit;
+    if (limit < height) {
+      // Último borde de bloque que entra en la franja, si deja al menos media hoja útil.
+      const inside = safe.filter((b) => b <= limit && b >= y + step * 0.5);
+      if (inside.length > 0) end = inside[inside.length - 1];
+    }
+    out.push([y, end]);
+    y = end;
+  }
+  return out;
+}
+
+/**
+ * Corta un canvas alto en franjas que entran a lo alto en una hoja A4. `breaks`
+ * (posiciones en px del canvas) son los bordes de bloque: cortando ahí no queda
+ * una barra del plan de cortes ni una fila de tabla partida al medio.
+ */
+export function sliceCanvas(source: HTMLCanvasElement, maxHeightPx: number, breaks: number[] = []): HTMLCanvasElement[] {
+  const out: HTMLCanvasElement[] = [];
+  for (const [y, end] of planSlices(source.height, maxHeightPx, breaks)) {
+    const h = end - y;
     const slice = document.createElement('canvas');
     slice.width = source.width;
     slice.height = h;
@@ -179,6 +202,20 @@ export function sliceCanvas(source: HTMLCanvasElement, maxHeightPx: number): HTM
     out.push(slice);
   }
   return out;
+}
+
+/**
+ * Bordes inferiores de las piezas de la hoja (filas, barras del plan y planos), en
+ * px CSS relativos a la hoja: son los puntos donde el corte de página no rompe nada.
+ */
+function safeBreaks(page: HTMLElement): number[] {
+  const top = page.getBoundingClientRect().top;
+  const ys = new Set<number>();
+  const sel = '.ws-bin, .ws-table tr, .ws-preview, .ws-plan h3, .worksheet h2, .worksheet h3, .ws-note, p';
+  for (const el of page.querySelectorAll(sel)) {
+    ys.add(Math.round(el.getBoundingClientRect().bottom - top));
+  }
+  return [...ys];
 }
 
 /**
@@ -211,6 +248,8 @@ export async function buildWorksheetPdfBlob(source: HTMLElement): Promise<Blob> 
     let first = true;
 
     for (const page of pages) {
+      // Los puntos de corte se miden antes de renderizar, sobre la hoja tal cual sale.
+      const breaksCss = safeBreaks(page);
       const canvas = await html2canvas(page, {
         scale,
         backgroundColor: '#ffffff',
@@ -220,7 +259,8 @@ export async function buildWorksheetPdfBlob(source: HTMLElement): Promise<Blob> 
         height: page.offsetHeight,
       });
       if (canvas.width === 0 || canvas.height === 0) continue;
-      for (const slice of sliceCanvas(canvas, maxSlicePx)) {
+      const k = canvas.width / Math.max(1, page.offsetWidth);
+      for (const slice of sliceCanvas(canvas, maxSlicePx, breaksCss.map((b) => b * k))) {
         if (!first) doc.addPage();
         first = false;
         const heightMm = (slice.height / slice.width) * CONTENT.widthMm;

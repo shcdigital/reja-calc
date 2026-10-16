@@ -4,6 +4,7 @@ import type { BudgetResult } from '../core/budget';
 import type { ObraResult, RejaResult } from '../core/obra';
 import type { Obra } from '../core/types';
 import { Preview } from './Preview';
+import { BinBar, binName, CutLegend } from './CutPlanParts';
 
 function RejaBlock({ r }: { r: RejaResult }) {
   const { design, config, reja } = r;
@@ -72,18 +73,28 @@ export function ObraWorksheet({ obra, result, budget }: { obra: Obra; result: Ob
       {result.valid.map((r) => <RejaBlock key={r.reja.id} r={r} />)}
 
       <h2 className="ws-page-break">Qué sale de cada caño (obra)</h2>
+      <CutLegend />
       {result.plan?.sections.map((s) => (
-        <div key={s.sectionKey}>
-          <h3>{s.profileLabel} — comprar {s.newBarsCount}</h3>
-          <ul className="ws-bins">
-            {s.bins.map((b) => (
-              <li key={`${b.source.kind}${b.index}`}>
-                <b>{b.source.kind === 'new' ? 'Caño' : 'Sobrante'} {b.index}:</b>{' '}
-                {b.items.map((i) => `${i.localId ?? i.pieceId} (${Math.round(i.lengthMm * 10) / 10})`).join(' · ')}
-                {' — sobra '}{fmtMm(b.leftoverMm)}
-              </li>
-            ))}
-          </ul>
+        <div className="ws-plan" key={s.sectionKey}>
+          <h3>{s.profileLabel} — comprar {s.newBarsCount} {s.newBarsCount === 1 ? 'caño' : 'caños'} de {fmtMm(s.stockLengthMm)}</h3>
+          {s.bins.map((b) => (
+            <div className="ws-bin" key={`${b.source.kind}${b.index}`}>
+              <p className="ws-bin-head">
+                <b>{binName(b)}</b> — {fmtPct(b.piecesLengthMm / b.source.lengthMm)} en piezas
+                {b.source.kind === 'offcut' && ` · de inventario: ${b.source.origin} · ${fmtMm(b.source.lengthMm)}`}
+              </p>
+              <BinBar bin={b} />
+              <p className="ws-bin-items">
+                Piezas: {b.items.map((i) => `${i.localId ?? i.pieceId} (${Math.round(i.lengthMm * 10) / 10})`).join(' · ')}
+              </p>
+              <p className="ws-bin-loss">
+                Pérdidas por disco: <b>{fmtMm(b.kerfLossMm)}</b>
+                {b.trimLossMm > 0 && <> · Refilado: <b>{fmtMm(b.trimLossMm)}</b></>}
+                {' · '}Sobrante final: <b>{fmtMm(b.leftoverMm)}</b>
+                {b.leftoverMm > 0 && <> ({b.leftoverReusable ? 'reutilizable' : 'descarte'})</>}
+              </p>
+            </div>
+          ))}
         </div>
       ))}
 

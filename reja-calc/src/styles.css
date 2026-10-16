@@ -159,13 +159,15 @@ table.grid { border-collapse: collapse; width: 100%; font-size: .9rem; }
 .bin { padding: .6rem 0; border-bottom: 1px solid var(--line); }
 .bin-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .tag { margin-left: .5rem; font-weight: 400; font-size: .8rem; background: var(--reuse); padding: .1rem .45rem; border-radius: 999px; }
-.bin-bar { display: flex; width: 100%; height: 2.6rem; margin: .4rem 0; border: 1px solid var(--ink); background: var(--scrap); overflow: hidden; }
+.bin-bar { display: flex; width: 100%; height: 2.6rem; margin: .4rem 0; border: 1px solid var(--ink); background: #fff; overflow: hidden; }
 .seg { display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; min-width: 0; line-height: 1.05; }
 .seg b { font-size: .72rem; } .seg small { font-size: .66rem; opacity: .85; }
 .seg-piece { background: var(--piece); color: #fff; border-right: 1px solid var(--card); }
 .seg-kerf { background: var(--amber); } .seg-trim { background: var(--err); }
 .seg-reuse { background: var(--reuse); color: var(--ink); }
-.seg-scrap { background: repeating-linear-gradient(45deg, var(--scrap), var(--scrap) 4px, var(--card) 4px, var(--card) 8px); color: var(--ink); }
+/* Color plano y no rayado: el PDF rasteriza esta misma barra y html2canvas no
+   dibuja `repeating-linear-gradient`, así que el sobrante chico se pinta liso. */
+.seg-scrap { background: var(--scrap); color: var(--ink); }
 .sw.seg-piece { background: var(--piece); } .sw.seg-kerf { background: var(--amber); }
 .bin-items { display: flex; flex-wrap: wrap; gap: .25rem .9rem; list-style: none; padding: 0; margin: .2rem 0; font-size: .88rem; }
 .bin-loss { margin: .2rem 0 0; font-size: .88rem; color: var(--muted); }
@@ -190,7 +192,7 @@ table.grid { border-collapse: collapse; width: 100%; font-size: .9rem; }
 .reja-pick:hover:not(:disabled) { background: none; color: var(--blue); }
 .reja-pick[aria-pressed="true"] { color: var(--steel-900); }
 .reja-name { flex: 0 1 220px; min-width: 120px; }
-.seg-other { background: repeating-linear-gradient(135deg, var(--steel-400), var(--steel-400) 4px, var(--steel-600) 4px, var(--steel-600) 8px); color: #fff; border-right: 1px solid var(--card); }
+.seg-other { background: repeating-linear-gradient(135deg, var(--steel-400), var(--steel-400) 4px, var(--steel-600) 4px, var(--steel-600) 8px); color: #fff; border-right: 1px solid var(--card); } /* solo en pantalla: el plan de la obra no marca «otra reja» */
 .sw.seg-other { background: var(--steel-600); }
 
 /* Impresión */
@@ -209,7 +211,21 @@ table.grid { border-collapse: collapse; width: 100%; font-size: .9rem; }
 .ws-table.ws-cut { table-layout: fixed; }
 .ws-table.grid td.num { text-align: right; }
 .ws-preview { max-width: 170mm; margin: .5rem auto; } .ws-preview svg { background: #fff; max-height: 90mm; max-width: 100%; }
-.ws-bins { padding-left: 1rem; } .ws-note { font-size: 9pt; margin-top: 1rem; }
+.ws-note { font-size: 9pt; margin-top: 1rem; }
+/* Plan de cortes de la hoja de taller: las mismas barras de color que la web,
+   compactadas para el papel (una barra por caño, con sus piezas y pérdidas). */
+.ws-plan h3 { margin: .6rem 0 .1rem; }
+.ws-bin { margin: .2rem 0 .45rem; break-inside: avoid; page-break-inside: avoid; }
+.ws-bin-head, .ws-bin-items, .ws-bin-loss { font-size: 8.5pt; margin: .1rem 0; }
+.ws-bin-head b, .ws-bin-loss b { color: #000; }
+.ws-bin-items { color: #333; }
+.ws-bin-loss { color: #333; }
+.worksheet .legend { font-size: 8pt; color: #333; margin: .3rem 0; }
+.worksheet .bin-bar { height: 6mm; margin: .2rem 0; border-color: #555; }
+.worksheet .seg { line-height: 1; }
+.worksheet .seg b { font-size: 6.5pt; }
+/* Las medidas van en la línea de piezas: dentro de una barra de 6 mm no entran. */
+.worksheet .seg small { display: none; }
 /* Bloques en que se divide la hoja de taller para el PDF (uno por página A4). */
 .pdf-page { background: #fff; }
 /* Cada reja empieza en su propia hoja también al imprimir. */
@@ -232,6 +248,8 @@ table.grid { border-collapse: collapse; width: 100%; font-size: .9rem; }
   table.grid th, table.grid td { white-space: normal !important; overflow-wrap: anywhere; }
   .bin { break-inside: avoid; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .preview .piece { fill: #ccc !important; } .preview .dim text { fill: #000; } .preview .dim line { stroke: #000; }
+  /* Los colores del plano y del plan de cortes son los de la web: los atributos
+     del SVG y las clases de las barras ya traen los valores, así que no se pisan
+     al imprimir y la impresión coincide con el PDF. */
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

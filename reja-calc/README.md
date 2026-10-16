@@ -44,8 +44,8 @@ Todo corre en el navegador: sin backend, sin cuentas y sin servicios externos. L
 - Total de la obra. **No** incluye margen de ganancia ni impuestos; si falta un precio, se avisa y ese subtotal no entra en el total.
 
 ### Salidas
-- **Hoja de taller imprimible**: datos de armado, plano, lista de cortes, qué sale de cada caño y presupuesto. **Cada reja arranca en su propia hoja**, y «qué sale de cada caño» también empieza en hoja nueva.
-- **PDF** = **copia fiel de la hoja de taller**: se renderiza ese mismo HTML (html2canvas + jsPDF, se cargan solo al usarlo) y el archivo sale idéntico a la impresión. «Descargar PDF» y «Enviar por WhatsApp» usan ese mismo PDF. Si por algún motivo no se pudiera usar el DOM, cae a un PDF de texto equivalente.
+- **Hoja de taller imprimible**: datos de armado, plano, lista de cortes, **plan de cortes con las barras de color de cada caño** (piezas, pérdidas de disco y sobrantes, igual que en la web) y presupuesto. **Cada reja arranca en su propia hoja**, y «qué sale de cada caño» también empieza en hoja nueva.
+- **PDF** = **copia fiel de la hoja de taller**: se renderiza ese mismo HTML (html2canvas + jsPDF, se cargan solo al usarlo) y el archivo sale idéntico a la impresión, **con el plan de cortes en color**. Los cortes de hoja se hacen en el borde de cada bloque, así que ninguna barra ni fila queda partida al medio. «Descargar PDF» y «Enviar por WhatsApp» usan ese mismo PDF. Si por algún motivo no se pudiera usar el DOM, cae a un PDF de texto equivalente.
 - **Enviar por WhatsApp**: arma el PDF y lo comparte **como archivo adjunto** con la compartición nativa del sistema (Web Share API). Si el navegador no sabe compartir archivos (varios de escritorio), descarga el PDF y abre WhatsApp con el resumen para adjuntarlo con el clip.
 - **CSV** de cortes y de materiales, con «;» y coma decimal para abrirlos directo en Excel en español.
 
@@ -113,6 +113,7 @@ src/ui/              Interfaz (React)
   App.tsx              pantalla principal (obra, reja activa, secciones 1–9)
   Preview.tsx          plano técnico de la reja en SVG
   CutPlanView.tsx      vista del plan de cortes por caño
+  CutPlanParts.tsx     barras de color del plan y su leyenda (web y hoja de taller)
   Worksheet.tsx        hoja de taller imprimible (una hoja por reja)
   NumField.tsx         campo numérico
   pdf.ts               PDF = copia fiel de la hoja de taller (html2canvas + jsPDF)
