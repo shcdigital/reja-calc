@@ -63,7 +63,16 @@ npm run build      # typecheck + compila a dist/
 npm run preview    # sirve dist/ para probar la compilación
 ```
 
-El proyecto usa rutas relativas (`base: './'`), así que `dist/` se puede servir desde cualquier subcarpeta (por ejemplo, un GitHub Pages del repositorio).
+El proyecto usa rutas relativas (`base: './'`), así que `dist/` se puede servir desde cualquier subcarpeta.
+
+### Publicación en GitHub Pages
+
+La versión publicada vive en <https://shcdigital.github.io/reja-calc/>: cada push a `master` dispara
+`.github/workflows/deploy.yml`, que instala dependencias, corre las pruebas, compila y publica `reja-calc/dist`
+como artefacto de Pages. No hay que mantener ninguna rama `gh-pages` ni commitear `dist/`.
+
+Para publicar el mismo repositorio en otra cuenta hay que crear el proyecto en GitHub, habilitar Pages con
+origen **GitHub Actions** (`gh api -X PUT repos/<usuario>/<repo>/pages -f build_type=workflow`) y hacer push.
 
 ## Cómo se usa
 
@@ -96,6 +105,7 @@ src/core/            Motor de cálculo (sin React, probado)
   budget.ts            presupuesto de obra (materiales + consumibles + mano de obra)
   document.ts          nombre de archivo, resumen para compartir y contenido del PDF
   exporters.ts         CSV y descarga de archivos
+  exporters.test.ts    pruebas de exportación (formato y seguridad del CSV)
   format.ts            formato de números y medidas (es-AR)
   helpers.ts           utilidades de pruebas/uso programático (makeConfig, catalog)
   *.test.ts            pruebas del motor (rejas, obra, budget, document)
@@ -114,6 +124,8 @@ src/styles.css       tema visual (paleta industrial de herrería)
 docs/FORMULAS.md     fórmulas, convenciones de montaje y decisiones configurables
 docs/ALGORITMO.md    algoritmo de optimización de corte
 ```
+
+En la raíz del repositorio: `openspec/` (specs y cambios) y `.github/workflows/deploy.yml` (publicación en Pages).
 
 ## Cómo calcula (resumen)
 
