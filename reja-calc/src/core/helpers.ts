@@ -4,6 +4,7 @@ import type { ProjectConfig } from './types';
 /** Utilidad de pruebas/uso programático: config por defecto con cambios parciales. */
 export function makeConfig(over: {
   w?: number; h?: number; round?: string; assembly?: ProjectConfig['frame']['assembly'];
+  horizontals?: ProjectConfig['frame']['horizontalProfile'];
   crossing?: ProjectConfig['bars']['crossing']; kerf?: number; frame?: string;
   mode?: 'auto' | 'manual'; manual?: number; gap?: number; minGap?: number; reuse?: boolean; jg?: number;
   reinf?: boolean; ends?: ProjectConfig['bars']['ends']; setback?: number;
@@ -13,6 +14,7 @@ export function makeConfig(over: {
   if (over.h !== undefined) c.window.heightMm = over.h;
   if (over.round) c.roundProfileId = over.round;
   if (over.assembly) c.frame.assembly = over.assembly;
+  if (over.horizontals) c.frame.horizontalProfile = over.horizontals;
   if (over.crossing) c.bars.crossing = over.crossing;
   if (over.kerf !== undefined) c.fabrication.kerfMm = over.kerf;
   if (over.frame) { c.frame.profileId = over.frame; c.reinforcement.profileId = over.frame; }

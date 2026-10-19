@@ -11,7 +11,8 @@ function RejaBlock({ r }: { r: RejaResult }) {
   if (!design.derived || !design.distribution) return null;
   const dv = design.derived;
   const groups = groupPieces(design.pieces);
-  const frameLabel = design.pieces.find((p) => p.type === 'frame-top')?.profileLabel ?? '';
+  const sideLabel = design.pieces.find((p) => p.type === 'frame-left')?.profileLabel ?? '';
+  const horizontalLabel = design.pieces.find((p) => p.type === 'frame-top')?.profileLabel ?? '';
   const reinfLabel = design.pieces.find((p) => p.type === 'reinforcement')?.profileLabel ?? '';
   const barLabel = design.pieces.find((p) => p.type === 'bar')?.profileLabel ?? '';
   const W = config.window.widthMm;
@@ -22,7 +23,9 @@ function RejaBlock({ r }: { r: RejaResult }) {
       <p className="ws-dim">Reja terminada: <b>{fmtMm(W)} × {fmtMm(H)}</b> ({fmtCm(W)} × {fmtCm(H)}) — medidas exteriores</p>
       <table className="ws-table">
         <tbody>
-          <tr><th>Marco</th><td>{frameLabel}, {fmtMm(dv.frameInPlaneMm)} a la vista · {config.frame.assembly === 'horizontal-full' ? 'tramos horizontales completos, laterales entre ellos' : 'laterales completos, tramos horizontales entre ellos'}</td></tr>
+          <tr><th>Marco</th><td>{dv.horizontalRound
+            ? `Laterales: ${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista · MS/MI: ${horizontalLabel}, Ø${fmtMm(dv.frameHorizontalMm)} a la vista`
+            : `${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista`} · {config.frame.assembly === 'horizontal-full' ? 'tramos horizontales completos, laterales entre ellos' : 'laterales completos, tramos horizontales entre ellos'}</td></tr>
           <tr><th>Refuerzo central</th><td>{dv.withReinforcement
             ? `${reinfLabel}, centrado a ${fmtMm(W / 2)} · ${config.bars.crossing === 'split' ? 'barrotes en dos tramos' : 'barrotes pasantes (agujeros en el refuerzo)'}`
             : 'No lleva: barrotes continuos de lateral a lateral'}</td></tr>

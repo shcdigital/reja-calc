@@ -139,9 +139,10 @@ describe('Armado del marco y refuerzo', () => {
   });
   it('geometría: envolvente = dimensiones exteriores, sin superposiciones (ambos armados, cruces y extremos)', () => {
     for (const assembly of ['horizontal-full', 'vertical-full'] as const)
-      for (const crossing of ['split', 'through'] as const)
+      for (const horizontals of ['same-as-sides', 'round'] as const)
+        for (const crossing of ['split', 'through'] as const)
         for (const ends of ['butt', 'inserted'] as const) {
-        const d = computeDesign(makeConfig({ assembly, crossing, ends, jg: 1.5 }), catalog);
+        const d = computeDesign(makeConfig({ assembly, horizontals, crossing, ends, jg: 1.5 }), catalog);
         const L = d.layout;
         near(Math.min(...L.map((r) => r.x)), 0); near(Math.min(...L.map((r) => r.y)), 0);
         near(Math.max(...L.map((r) => r.x + r.w)), 1500); near(Math.max(...L.map((r) => r.y + r.h)), 600);
@@ -187,6 +188,56 @@ describe('Armado del marco y refuerzo', () => {
   it('agrupa piezas iguales', () => {
     const g = groupPieces(computeDesign(makeConfig(), catalog).pieces);
     expect(g.find((x) => x.ids[0] === 'B01-I')!.quantity).toBe(8);
+  });
+});
+
+describe('Marco con tramos superior e inferior (MS/MI) de caño redondo', () => {
+  const d = computeDesign(makeConfig({ horizontals: 'round' }), catalog);
+
+  it('por defecto los cuatro tramos son del mismo perfil rectangular', () => {
+    const base = computeDesign(makeConfig(), catalog);
+    expect(base.derived!.horizontalRound).toBe(false);
+    expect(base.derived!.frameHorizontalMm).toBe(20);
+  });
+
+  it('el alto útil se mide con el diámetro del caño redondo', () => {
+    expect(d.issues.filter((i) => i.level === 'error')).toEqual([]);
+    expect(d.derived!.horizontalRound).toBe(true);
+    expect(d.derived!.frameInPlaneMm).toBe(20); // laterales: rectangular 20 a la vista
+    expect(d.derived!.frameHorizontalMm).toBe(31.75); // MS/MI: caño Ø31,75
+    expect(d.derived!.innerWidthMm).toBe(1460);
+    expect(d.derived!.innerHeightMm).toBe(536.5);
+  });
+
+  it('MS y MI salen del caño redondo, con la misma sección que los barrotes', () => {
+    const roundKey = sectionKey(findRound(catalog, 'r-1q')!);
+    const ms = d.pieces.find((p) => p.id === 'MS')!;
+    const mi = d.pieces.find((p) => p.id === 'MI')!;
+    expect(ms.profileLabel).toMatch(/Caño redondo/);
+    expect(mi.profileLabel).toMatch(/Caño redondo/);
+    expect(ms.sectionKey).toBe(roundKey);
+    expect(mi.sectionKey).toBe(roundKey);
+    expect(lens(d, 'MS')).toEqual([1500]);
+    expect(lens(d, 'MI')).toEqual([1500]);
+    expect(lens(d, 'LI')).toEqual([536.5]);
+    expect(lens(d, 'LD')).toEqual([536.5]);
+    expect(lens(d, 'RC')).toEqual([536.5]);
+  });
+
+  it('los barrotes arrancan debajo del caño redondo y la separación sigue siendo uniforme', () => {
+    const { topsMm, gapMm, count } = d.distribution!;
+    expect(count).toBe(4);
+    near(topsMm[0] - 31.75, gapMm);
+    near(600 - 31.75 - (topsMm[count - 1] + 31.75), gapMm);
+  });
+
+  it('el plan de cortes suma MS/MI al caño redondo', () => {
+    const r = computeProject(makeConfig({ horizontals: 'round' }), catalog);
+    const round = r.materials.find((m) => m.sectionKey.startsWith('round'))!;
+    const rect = r.materials.find((m) => m.sectionKey.startsWith('rect'))!;
+    expect(round.piecesLengthMm).toBe(8760); // 8 barrotes de 720 + MS/MI de 1500
+    expect(round.newBarsCount).toBe(2);
+    expect(rect.newBarsCount).toBe(1); // LI + LD + RC
   });
 });
 

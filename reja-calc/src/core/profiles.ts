@@ -23,7 +23,7 @@ export const DEFAULT_CATALOG: Catalog = {
 export const DEFAULT_CONFIG: ProjectConfig = {
   window: { widthMm: 1500, heightMm: 600 },
   roundProfileId: 'r-1q',
-  frame: { profileId: 'c-40x20', orientation: 'minor', assembly: 'horizontal-full' },
+  frame: { profileId: 'c-40x20', orientation: 'minor', assembly: 'horizontal-full', horizontalProfile: 'same-as-sides' },
   reinforcement: { enabled: true, sameAsFrame: true, profileId: 'c-40x20', orientation: 'minor' },
   bars: { desiredGapMm: 100, minGapMm: 60, mode: 'auto', manualCount: 5, crossing: 'split', ends: 'butt' },
   fabrication: {

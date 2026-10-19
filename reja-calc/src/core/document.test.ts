@@ -68,6 +68,17 @@ describe('Documento de obra', () => {
     expect(all.toLowerCase()).toContain('no verifica');
   });
 
+  it('aclara cuando los tramos superior e inferior (MS/MI) son de caño redondo', () => {
+    const obra = obraTwo();
+    obra.rejas = obra.rejas.map((r) => ({
+      ...r,
+      config: { ...r.config, frame: { ...r.config.frame, horizontalProfile: 'round' as const } },
+    }));
+    const result = computeObra(obra, catalog);
+    const all = buildObraDocument(obra, result, undefined, '2026-10-16').map((l) => l.text).join('\n');
+    expect(all).toContain('MS/MI de caño redondo');
+  });
+
   it('cada reja arranca en su propia hoja e incluye su plano', () => {
     const obra = obraTwo();
     const result = computeObra(obra, catalog);

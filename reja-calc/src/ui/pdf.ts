@@ -40,8 +40,11 @@ function drawPlano(
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(150);
   doc.rect(x0, y, sw, sh, 'FD');
+  const horizontalRound = r.design.derived?.horizontalRound ?? false;
   for (const rc of layout) {
-    const c = PLANO_FILL[rc.type] ?? [160, 160, 160];
+    const c = (horizontalRound && (rc.type === 'frame-top' || rc.type === 'frame-bottom'))
+      ? PLANO_FILL.bar
+      : PLANO_FILL[rc.type] ?? [160, 160, 160];
     doc.setFillColor(c[0], c[1], c[2]);
     doc.setDrawColor(c[0], c[1], c[2]);
     doc.rect(x0 + rc.x * scale, y + rc.y * scale, Math.max(rc.w * scale, 0.2), Math.max(rc.h * scale, 0.2), 'F');

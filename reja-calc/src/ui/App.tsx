@@ -229,12 +229,22 @@ export function App() {
               </select>
             </label>
             <label className="field">
-              <span className="field-label">Perfil rectangular del marco</span>
+              <span className="field-label">Perfil rectangular del marco (laterales)</span>
               <select value={config.frame.profileId} onChange={(e) => setConfig((c) => { c.frame.profileId = e.target.value; })}>
                 {catalog.rect.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
             </label>
             <OrientationSelect label="Orientación del perfil del marco" profile={frameP} value={config.frame.orientation} onChange={(o) => setConfig((c) => { c.frame.orientation = o; })} />
+            <label className="field">
+              <span className="field-label">Tramos superior e inferior (MS / MI)</span>
+              <select value={config.frame.horizontalProfile} onChange={(e) => setConfig((c) => { c.frame.horizontalProfile = e.target.value as ProjectConfig['frame']['horizontalProfile']; })}>
+                <option value="same-as-sides">Mismo perfil que los laterales (rectangular)</option>
+                <option value="round">Caño redondo de los barrotes{round ? ` (Ø${round.odMm} mm)` : ''}</option>
+              </select>
+            </label>
+            <p className="muted small">{config.frame.horizontalProfile === 'round'
+              ? 'Los tramos superior e inferior son de caño redondo: el alto útil se mide entre sus diámetros y las piezas redondas se cortan y cuentan junto con los barrotes.'
+              : 'Los cuatro tramos del marco usan el mismo perfil rectangular.'}</p>
             {recommended && (
               <p className="hint">
                 Recomendado para Ø{round!.odMm} mm: <b>{recommended.profile.label}</b>, con el lado de {Math.max(recommended.profile.aMm, recommended.profile.bMm)} mm hacia afuera (el barrote apoya completo).{' '}
@@ -251,7 +261,7 @@ export function App() {
               <>
                 <label className="check">
                   <input type="checkbox" checked={config.reinforcement.sameAsFrame} onChange={(e) => setConfig((c) => { c.reinforcement.sameAsFrame = e.target.checked; })} />
-                  Con el mismo perfil que el marco
+                  Con el mismo perfil rectangular que los laterales del marco
                 </label>
                 {!config.reinforcement.sameAsFrame && (
                   <>
@@ -383,7 +393,9 @@ export function App() {
             {errors.length === 0 && design.derived && (
               <dl className="facts">
                 <div><dt>Vano interior</dt><dd>{fmtMm(design.derived.innerWidthMm)} × {fmtMm(design.derived.innerHeightMm)}</dd></div>
-                <div><dt>Marco a la vista</dt><dd>{fmtMm(design.derived.frameInPlaneMm)} ({fmtMm(design.derived.frameDepthMm)} de profundidad)</dd></div>
+                <div><dt>Marco a la vista</dt><dd>{design.derived.horizontalRound
+                  ? `Laterales ${fmtMm(design.derived.frameInPlaneMm)} · MS/MI caño redondo Ø${fmtMm(design.derived.frameHorizontalMm)}`
+                  : `${fmtMm(design.derived.frameInPlaneMm)} (${fmtMm(design.derived.frameDepthMm)} de profundidad)`}</dd></div>
                 {design.derived.withReinforcement
                   ? <div><dt>Refuerzo central</dt><dd>{fmtMm(design.derived.reinfInPlaneMm)} a la vista · sector {fmtMm(design.derived.sectorWidthMm)}</dd></div>
                   : <div><dt>Refuerzo central</dt><dd>No lleva</dd></div>}
@@ -551,7 +563,7 @@ export function App() {
 
       <footer className="foot" data-area="screen">
         <button type="button" className="link" onClick={() => { if (confirm('¿Restaurar todos los valores iniciales? Se conservan los sobrantes guardados.')) { setObra(createObra()); setCatalog(DEFAULT_CATALOG); } }}>Restaurar valores iniciales</button>
-        <span className="muted small">Marco a la vista {frameP ? fmtMm(inPlaneDim(frameP, config.frame.orientation)) : '—'}{frameP ? `, ${fmtMm(depthDim(frameP, config.frame.orientation))} de profundidad` : ''}.</span>
+        <span className="muted small">Marco a la vista {frameP ? fmtMm(inPlaneDim(frameP, config.frame.orientation)) : '—'}{frameP ? `, ${fmtMm(depthDim(frameP, config.frame.orientation))} de profundidad` : ''}{design.derived?.horizontalRound && round ? `, con MS/MI de caño redondo Ø${fmtMm(round.odMm)}` : ''}.</span>
       </footer>
     </div>
   );

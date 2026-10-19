@@ -24,6 +24,9 @@ export function Preview({ design, width, height }: { design: Design; width: numb
   const m = { l: k * 6, r: k * 9, t: k * 4, b: k * 8 };
   const vb = `${-m.l} ${-m.t} ${W + m.l + m.r} ${H + m.t + m.b}`;
   const pf = dv.frameInPlaneMm;
+  /** Dimensión a la vista de los tramos horizontales: pf o el Ø del caño redondo. */
+  const pfH = dv.frameHorizontalMm;
+  const horizontalFill = dv.horizontalRound ? FILL.bar : FILL['frame-top'];
   const rcx = W / 2;
   const tick = k * 0.5;
 
@@ -60,26 +63,29 @@ export function Preview({ design, width, height }: { design: Design; width: numb
       role="img"
       aria-label={`Plano de la reja de ${fmtMm(W)} por ${fmtMm(H)}`}
     >
-      {layout.map((r) => (
-        <rect key={r.pieceId} x={r.x} y={r.y} width={r.w} height={r.h} fill={FILL[r.type]} stroke={INK} strokeWidth={1} vectorEffect="non-scaling-stroke" className={`piece piece-${r.type}`} />
-      ))}
+      {layout.map((r) => {
+        const fill = r.type === 'frame-top' || r.type === 'frame-bottom' ? horizontalFill : FILL[r.type];
+        return (
+          <rect key={r.pieceId} x={r.x} y={r.y} width={r.w} height={r.h} fill={fill} stroke={INK} strokeWidth={1} vectorEffect="non-scaling-stroke" className={`piece piece-${r.type}`} />
+        );
+      })}
       {/* etiquetas de piezas del marco y refuerzo */}
-      <text x={W / 2} y={pf * 0.5 + k * 0.5} textAnchor="middle" fontSize={Math.min(k * 1.2, pf * 0.7)} fill={INK} fontWeight={700} className="plabel">MS</text>
-      <text x={W / 2} y={H - pf * 0.5 + k * 0.5} textAnchor="middle" fontSize={Math.min(k * 1.2, pf * 0.7)} fill={INK} fontWeight={700} className="plabel">MI</text>
+      <text x={W / 2} y={pfH * 0.5 + k * 0.5} textAnchor="middle" fontSize={Math.min(k * 1.2, pfH * 0.7)} fill={INK} fontWeight={700} className="plabel">MS</text>
+      <text x={W / 2} y={H - pfH * 0.5 + k * 0.5} textAnchor="middle" fontSize={Math.min(k * 1.2, pfH * 0.7)} fill={INK} fontWeight={700} className="plabel">MI</text>
       {dv.withReinforcement && (
         <text x={rcx} y={H / 2} textAnchor="middle" fontSize={Math.min(k * 1.2, dv.reinfInPlaneMm * 0.7)} fill={INK} fontWeight={700} className="plabel" transform={`rotate(-90 ${rcx} ${H / 2})`}>RC</text>
       )}
 
       {labelGaps && dist.topsMm.map((top, i) => {
-        const y0 = i === 0 ? pf : dist.topsMm[i - 1] + dv.barOdMm;
+        const y0 = i === 0 ? pfH : dist.topsMm[i - 1] + dv.barOdMm;
         return vDim(y0, top, gapX, fmtNum(Math.round(dist.gapMm * 10) / 10), `g${i}`, true);
       })}
-      {labelGaps && vDim(dist.topsMm[dist.count - 1] + dv.barOdMm, H - pf, gapX, fmtNum(Math.round(dist.gapMm * 10) / 10), 'glast', true)}
+      {labelGaps && vDim(dist.topsMm[dist.count - 1] + dv.barOdMm, H - pfH, gapX, fmtNum(Math.round(dist.gapMm * 10) / 10), 'glast', true)}
 
       {hDim(0, W, H + k * 3, `Ancho exterior ${fmtMm(W)}`, 'w')}
       {hDim(pf, W - pf, H + k * 6, `Ancho útil interior ${fmtMm(dv.innerWidthMm)}`, 'wi')}
       {vDim(0, H, W + k * 3, `Alto exterior ${fmtMm(H)}`, 'h')}
-      {vDim(pf, H - pf, W + k * 6.5, `Alto útil ${fmtMm(dv.innerHeightMm)}`, 'hi')}
+      {vDim(pfH, H - pfH, W + k * 6.5, `Alto útil ${fmtMm(dv.innerHeightMm)}`, 'hi')}
       {dv.withReinforcement && hDim(0, rcx, -k * 1.8, `Refuerzo al centro: ${fmtMm(W / 2)}`, 'rc')}
     </svg>
   );

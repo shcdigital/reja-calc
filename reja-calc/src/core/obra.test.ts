@@ -106,12 +106,14 @@ describe('Obra: persistencia y migración', () => {
   it('una obra guardada sin las opciones nuevas toma los valores por defecto', () => {
     const obra = createObra();
     const cfg = structuredClone(obra.rejas[0].config) as unknown as {
-      bars: Record<string, unknown>; fabrication: Record<string, unknown>;
+      frame: Record<string, unknown>; bars: Record<string, unknown>; fabrication: Record<string, unknown>;
     };
+    delete cfg.frame.horizontalProfile;
     delete cfg.bars.ends;
     delete cfg.fabrication.socketSetbackMm;
     const parsed = parseObra(JSON.stringify({ ...obra, rejas: [{ ...obra.rejas[0], config: cfg }] }));
     expect(parsed).not.toBeNull();
+    expect(parsed!.rejas[0].config.frame.horizontalProfile).toBe('same-as-sides');
     expect(parsed!.rejas[0].config.bars.ends).toBe('butt');
     expect(parsed!.rejas[0].config.fabrication.socketSetbackMm).toBe(1);
   });

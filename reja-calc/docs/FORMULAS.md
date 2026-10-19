@@ -8,7 +8,8 @@ Los largos de corte se redondean a 0,1 mm.
 | Símbolo | Significado |
 |---|---|
 | W, H | Ancho y alto **exteriores** de la reja terminada |
-| pf | Dimensión del perfil del marco que queda **a la vista** (en el plano de la reja) |
+| pf | Dimensión del perfil de los **laterales** del marco que queda **a la vista** (en el plano de la reja) |
+| pfH | Dimensión a la vista de los **tramos superior e inferior** (MS/MI): igual a `pf`, o al diámetro `d` si son de caño redondo |
 | rw | Dimensión del refuerzo central a la vista (0 si la reja no lleva refuerzo) |
 | d | Diámetro exterior del caño redondo |
 | pared | Espesor de pared del perfil rectangular (marco y refuerzo) |
@@ -22,8 +23,10 @@ Recomendación inicial: el perfil de menor sección cuyo lado mayor sea ≥ d (e
 ## Vano interior
 
 ```
-Wi = W − 2·pf        Hi = H − 2·pf
+Wi = W − 2·pf        Hi = H − 2·pfH
 ```
+
+`pfH` es el perfil de los tramos superior e inferior: el mismo rectangular del marco (`pf`) o, a elección, el caño redondo de los barrotes (su diámetro `d`). Los laterales son siempre el perfil rectangular del marco.
 
 Con refuerzo central, el ancho libre a cada lado del refuerzo es `sector = (Wi − rw) / 2`.
 Sin refuerzo central, `rw = 0`, `sector = Wi / 2` y los barrotes ocupan todo el vano.
@@ -39,7 +42,7 @@ n·d + (n + 1)·g = Hi   →   g = (Hi − n·d) / (n + 1)
 - **Automático:** `n = max(1, ceil((Hi − g_máx) / (d + g_máx)))` — el menor n con `g ≤ g_máx`.
 - Si ese `g` queda por debajo de la separación mínima, los dos límites son incompatibles: se mantiene la cuenta que respeta el máximo, se avisa y se proponen alternativas (n y n−1).
 - **Manual:** se usa el n indicado; se avisa si `g > g_máx` o `g < g_mín`; error si `g ≤ 0`.
-- Borde superior del barrote i (i = 0…n−1, desde el borde exterior): `pf + g + i·(d + g)`. La distribución es simétrica.
+- Borde superior del barrote i (i = 0…n−1, desde el borde exterior): `pfH + g + i·(d + g)`. La distribución es simétrica.
 
 ## Marco
 
@@ -47,6 +50,8 @@ n·d + (n + 1)·g = Hi   →   g = (Hi − n·d) / (n + 1)
 |---|---|---|
 | Tramos horizontales completos | `W` | `Hi − 2·jg` (entre MS y MI) |
 | Laterales completos | `Wi − 2·jg` (entre LI y LD) | `H` |
+
+Los tramos MS/MI usan el perfil rectangular del marco o, si se elige, el caño redondo de los barrotes. Con caño redondo, `pfH = d`, así que el vano interior (`Hi`) y el largo de los laterales que van entre MS y MI se miden con ese diámetro; las piezas MS/MI comparten sección con los barrotes y se cortan y cuentan juntas en el plan.
 
 ## Refuerzo central (RC) — opcional
 
@@ -125,5 +130,5 @@ El total **no** incluye margen de ganancia ni impuestos. Si falta el precio de u
 
 ## Decisiones configurables
 
-Largo comercial, disco, holgura por unión, refilado de punta, extremos de los barrotes (a tope o alojados en un agujero del lateral), freno de la punta, holgura de agujero, medidas reales de cada perfil, largo mínimo de sobrante reutilizable, precios por caño, consumibles y valor hora de mano de obra.
+Largo comercial, disco, holgura por unión, refilado de punta, perfil de los tramos superior e inferior (mismo rectangular del marco o caño redondo de los barrotes), extremos de los barrotes (a tope o alojados en un agujero del lateral), freno de la punta, holgura de agujero, medidas reales de cada perfil, largo mínimo de sobrante reutilizable, precios por caño, consumibles y valor hora de mano de obra.
 Sin cortes a inglete: todas las uniones del marco son a tope a 90°.

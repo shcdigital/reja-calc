@@ -40,6 +40,13 @@ export type Orientation = 'minor' | 'major';
 
 // ───────────────────────── Configuración ─────────────────────────
 
+/**
+ * Perfil de los tramos superior e inferior del marco (MS y MI).
+ * - 'same-as-sides': el mismo perfil rectangular y la misma orientación que los laterales.
+ * - 'round': caño redondo, el mismo de los barrotes (el vano interior lo mide su diámetro).
+ */
+export type FrameHorizontals = 'same-as-sides' | 'round';
+
 /** Cómo se construye el marco. */
 export type FrameAssembly =
   /** Tramos superior e inferior completos (largo = ancho exterior); los laterales van entre ellos. */
@@ -68,7 +75,13 @@ export type BarEnds =
 export interface ProjectConfig {
   window: { widthMm: number; heightMm: number };
   roundProfileId: string;
-  frame: { profileId: string; orientation: Orientation; assembly: FrameAssembly };
+  frame: {
+    profileId: string;
+    orientation: Orientation;
+    assembly: FrameAssembly;
+    /** Perfil de los tramos superior e inferior (MS/MI). */
+    horizontalProfile: FrameHorizontals;
+  };
   reinforcement: {
     /** Si la reja lleva el parante vertical al medio. Si es false, los barrotes van continuos. */
     enabled: boolean;
@@ -189,6 +202,10 @@ export interface DesignDerived {
   innerHeightMm: number;
   frameInPlaneMm: number;
   frameDepthMm: number;
+  /** Dimensión a la vista de los tramos superior e inferior (MS/MI): pf o el Ø del caño redondo. */
+  frameHorizontalMm: number;
+  /** true si los tramos superior e inferior (MS/MI) son de caño redondo. */
+  horizontalRound: boolean;
   /** Si la reja lleva refuerzo central. */
   withReinforcement: boolean;
   reinfInPlaneMm: number;

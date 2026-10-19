@@ -206,9 +206,12 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
   const frameDepth = depthDim(frameP, config.frame.orientation);
   const rw = hasReinf ? inPlaneDim(reinfP!, reinfOrientation) : 0;
   const reinfDepth = hasReinf ? depthDim(reinfP!, reinfOrientation) : 0;
-  const Wi = W - 2 * pf;
-  const Hi = H - 2 * pf;
   const d = round.odMm;
+  const horizontalRound = config.frame.horizontalProfile === 'round';
+  /** Dimensión a la vista de los tramos horizontales del marco: el perfil rectangular o el caño redondo. */
+  const pfH = horizontalRound ? d : pf;
+  const Wi = W - 2 * pf;
+  const Hi = H - 2 * pfH;
   const jg = fab.jointGapMm;
   const sector = hasReinf ? (Wi - rw) / 2 : Wi / 2;
 
@@ -222,7 +225,9 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
   const holeD = d + fab.throughHoleClearanceMm;
 
   if (Wi <= 0 || Hi <= 0) {
-    fail('frame-too-big', `El marco (${fmtMm(pf)} a la vista por lado) no deja vano interior en una reja de ${fmtMm(W)} × ${fmtMm(H)}.`);
+    fail('frame-too-big', horizontalRound
+      ? `El marco (laterales de ${fmtMm(pf)} y tramos superior/inferior de caño redondo Ø${fmtMm(d)} a la vista) no deja vano interior en una reja de ${fmtMm(W)} × ${fmtMm(H)}.`
+      : `El marco (${fmtMm(pf)} a la vista por lado) no deja vano interior en una reja de ${fmtMm(W)} × ${fmtMm(H)}.`);
     return empty();
   }
   if (hasReinf && sector <= 2 * jg + EPS) {
@@ -248,7 +253,7 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
     minGapMm: config.bars.minGapMm,
     mode: config.bars.mode,
     manualCount: config.bars.manualCount,
-    innerTopMm: pf,
+    innerTopMm: pfH,
   });
   issues.push(...distIssues);
 
@@ -260,6 +265,8 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
     innerHeightMm: Hi,
     frameInPlaneMm: pf,
     frameDepthMm: frameDepth,
+    frameHorizontalMm: pfH,
+    horizontalRound,
     withReinforcement: hasReinf,
     reinfInPlaneMm: rw,
     reinfDepthMm: reinfDepth,
@@ -296,28 +303,43 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
   const framePiece = (id: string, type: PieceType, length: number, location: string, notes: string) => ({
     id, type, profileId: frameP.id, profileLabel: frameLabel, sectionKey: frameKey, lengthMm: length, location, notes,
   });
+  const horizontalLabel = horizontalRound ? barLabel : frameLabel;
+  /** Tramos superior e inferior: el mismo perfil rectangular del marco o el caño redondo de los barrotes. */
+  const horizontalPiece = (id: string, type: PieceType, length: number, location: string, notes: string) => ({
+    id, type,
+    profileId: horizontalRound ? round.id : frameP.id,
+    profileLabel: horizontalLabel,
+    sectionKey: horizontalRound ? barKey : frameKey,
+    lengthMm: length, location, notes,
+  });
+  const horizontalNote = horizontalRound
+    ? ` Tramo de caño redondo Ø${fmtMm(d)} (el mismo de los barrotes); el largo se mide sobre su eje.`
+    : '';
+  const lateralCurveNote = horizontalRound
+    ? ' El extremo que llega al caño redondo se cala a su curva.'
+    : '';
   const lateralNote = inserted
     ? ` Perforar ${distribution.count} ${distribution.count === 1 ? 'agujero' : 'agujeros'} Ø${holeD} mm (barrote Ø${d} + ${fmtMm(fab.throughHoleClearanceMm)} de holgura) en la cara interior, uno por barrote y con el eje a la altura de cada barrote. El barrote entra ${fmtMm(pen)} y se frena a ${fmtMm(setback)} de la cara exterior.`
     : '';
 
   if (fullH) {
-    add(framePiece('MS', 'frame-top', W, 'Marco, tramo superior (largo exterior completo)', 'Tramo completo. Los laterales se sueldan a tope entre MS y MI.'),
-      { x: 0, y: 0, w: W, h: pf });
-    add(framePiece('MI', 'frame-bottom', W, 'Marco, tramo inferior (largo exterior completo)', 'Tramo completo. Los laterales se sueldan a tope entre MS y MI.'),
-      { x: 0, y: H - pf, w: W, h: pf });
-    add(framePiece('LI', 'frame-left', Hi - 2 * jg, 'Marco, lateral izquierdo (entre tramos horizontales)', `Va entre MS y MI. Largo = alto exterior − 2×${fmtMm(pf)}${jg ? ` − 2×${fmtMm(jg)} de holgura` : ''}.${lateralNote}`),
-      { x: 0, y: pf + jg, w: pf, h: Hi - 2 * jg });
-    add(framePiece('LD', 'frame-right', Hi - 2 * jg, 'Marco, lateral derecho (entre tramos horizontales)', `Va entre MS y MI. Largo = alto exterior − 2×${fmtMm(pf)}${jg ? ` − 2×${fmtMm(jg)} de holgura` : ''}.${lateralNote}`),
-      { x: W - pf, y: pf + jg, w: pf, h: Hi - 2 * jg });
+    add(horizontalPiece('MS', 'frame-top', W, 'Marco, tramo superior (largo exterior completo)', `Tramo completo. Los laterales se sueldan a tope entre MS y MI.${horizontalNote}`),
+      { x: 0, y: 0, w: W, h: pfH });
+    add(horizontalPiece('MI', 'frame-bottom', W, 'Marco, tramo inferior (largo exterior completo)', `Tramo completo. Los laterales se sueldan a tope entre MS y MI.${horizontalNote}`),
+      { x: 0, y: H - pfH, w: W, h: pfH });
+    add(framePiece('LI', 'frame-left', Hi - 2 * jg, 'Marco, lateral izquierdo (entre tramos horizontales)', `Va entre MS y MI. Largo = alto exterior − 2×${fmtMm(pfH)}${jg ? ` − 2×${fmtMm(jg)} de holgura` : ''}.${lateralCurveNote}${lateralNote}`),
+      { x: 0, y: pfH + jg, w: pf, h: Hi - 2 * jg });
+    add(framePiece('LD', 'frame-right', Hi - 2 * jg, 'Marco, lateral derecho (entre tramos horizontales)', `Va entre MS y MI. Largo = alto exterior − 2×${fmtMm(pfH)}${jg ? ` − 2×${fmtMm(jg)} de holgura` : ''}.${lateralCurveNote}${lateralNote}`),
+      { x: W - pf, y: pfH + jg, w: pf, h: Hi - 2 * jg });
   } else {
     add(framePiece('LI', 'frame-left', H, 'Marco, lateral izquierdo (largo exterior completo)', `Tramo completo. Los tramos horizontales se sueldan a tope entre LI y LD.${lateralNote}`),
       { x: 0, y: 0, w: pf, h: H });
     add(framePiece('LD', 'frame-right', H, 'Marco, lateral derecho (largo exterior completo)', `Tramo completo. Los tramos horizontales se sueldan a tope entre LI y LD.${lateralNote}`),
       { x: W - pf, y: 0, w: pf, h: H });
-    add(framePiece('MS', 'frame-top', Wi - 2 * jg, 'Marco, tramo superior (entre laterales)', `Va entre LI y LD. Largo = ancho exterior − 2×${fmtMm(pf)}${jg ? ` − 2×${fmtMm(jg)} de holgura` : ''}.`),
-      { x: pf + jg, y: 0, w: Wi - 2 * jg, h: pf });
-    add(framePiece('MI', 'frame-bottom', Wi - 2 * jg, 'Marco, tramo inferior (entre laterales)', `Va entre LI y LD. Largo = ancho exterior − 2×${fmtMm(pf)}${jg ? ` − 2×${fmtMm(jg)} de holgura` : ''}.`),
-      { x: pf + jg, y: H - pf, w: Wi - 2 * jg, h: pf });
+    add(horizontalPiece('MS', 'frame-top', Wi - 2 * jg, 'Marco, tramo superior (entre laterales)', `Va entre LI y LD. Largo = ancho exterior − 2×${fmtMm(pf)}${jg ? ` − 2×${fmtMm(jg)} de holgura` : ''}.${horizontalNote}`),
+      { x: pf + jg, y: 0, w: Wi - 2 * jg, h: pfH });
+    add(horizontalPiece('MI', 'frame-bottom', Wi - 2 * jg, 'Marco, tramo inferior (entre laterales)', `Va entre LI y LD. Largo = ancho exterior − 2×${fmtMm(pf)}${jg ? ` − 2×${fmtMm(jg)} de holgura` : ''}.${horizontalNote}`),
+      { x: pf + jg, y: H - pfH, w: Wi - 2 * jg, h: pfH });
   }
 
   const through = hasReinf && config.bars.crossing === 'through';
@@ -341,7 +363,7 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
             ? ` Perforar ${distribution.count} agujeros Ø${holeD} mm (barrote Ø${d} + ${fab.throughHoleClearanceMm} mm de holgura) con los ejes a las alturas indicadas en cada barrote.`
             : ''),
       },
-      { x: W / 2 - rw / 2, y: pf + jg, w: rw, h: Hi - 2 * jg },
+      { x: W / 2 - rw / 2, y: pfH + jg, w: rw, h: Hi - 2 * jg },
     );
   }
 

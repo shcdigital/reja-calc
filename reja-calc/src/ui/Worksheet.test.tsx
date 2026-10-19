@@ -37,4 +37,18 @@ describe('Hoja de taller (plan de cortes)', () => {
     expect(html).toContain('Caño comercial 1');
     expect(html).toContain('Piezas:');
   });
+
+  it('aclara los laterales y los tramos redondos cuando MS/MI son de caño redondo', () => {
+    const base = createObra();
+    const reja = {
+      id: 'R1', name: 'Reja 1', config: makeConfig({ horizontals: 'round' }),
+      labor: { mode: 'hours' as const, hours: 0, fixedAmount: 0 },
+    };
+    const obra = { ...base, rejas: [reja], activeRejaId: 'R1' };
+    const result = computeObra(obra, catalog);
+    const html = renderToString(<ObraWorksheet obra={obra} result={result} budget={computeBudget(result, DEFAULT_BUDGET)} />);
+
+    expect(html).toContain('Laterales: Caño rectangular 40 × 20 × 2 mm, 20 mm a la vista');
+    expect(html).toContain('MS/MI: Caño redondo Ø31,75 × 2 mm, Ø31,8 mm a la vista');
+  });
 });
