@@ -7,7 +7,7 @@ export function makeConfig(over: {
   horizontals?: ProjectConfig['frame']['horizontalProfile'];
   crossing?: ProjectConfig['bars']['crossing']; kerf?: number; frame?: string;
   mode?: 'auto' | 'manual'; manual?: number; gap?: number; minGap?: number; reuse?: boolean; jg?: number;
-  reinf?: boolean; ends?: ProjectConfig['bars']['ends']; setback?: number;
+  reinf?: boolean; ends?: ProjectConfig['bars']['ends']; setback?: number; horizontalEdge?: number;
 } = {}): ProjectConfig {
   const c: ProjectConfig = structuredClone(DEFAULT_CONFIG);
   if (over.w !== undefined) c.window.widthMm = over.w;
@@ -27,6 +27,7 @@ export function makeConfig(over: {
   if (over.reinf !== undefined) c.reinforcement.enabled = over.reinf;
   if (over.ends) c.bars.ends = over.ends;
   if (over.setback !== undefined) c.fabrication.socketSetbackMm = over.setback;
+  if (over.horizontalEdge !== undefined) c.fabrication.horizontalEdgeMm = over.horizontalEdge;
   return c;
 }
 export const catalog = DEFAULT_CATALOG;

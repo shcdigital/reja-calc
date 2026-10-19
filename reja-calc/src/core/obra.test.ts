@@ -111,11 +111,22 @@ describe('Obra: persistencia y migración', () => {
     delete cfg.frame.horizontalProfile;
     delete cfg.bars.ends;
     delete cfg.fabrication.socketSetbackMm;
+    delete cfg.fabrication.horizontalEdgeMm;
     const parsed = parseObra(JSON.stringify({ ...obra, rejas: [{ ...obra.rejas[0], config: cfg }] }));
     expect(parsed).not.toBeNull();
     expect(parsed!.rejas[0].config.frame.horizontalProfile).toBe('same-as-sides');
     expect(parsed!.rejas[0].config.bars.ends).toBe('butt');
     expect(parsed!.rejas[0].config.fabrication.socketSetbackMm).toBe(1);
+    expect(parsed!.rejas[0].config.fabrication.horizontalEdgeMm).toBe(5);
+  });
+
+  it('una obra con MS/MI redondos y armado horizontal se normaliza a laterales completos', () => {
+    const obra = createObra();
+    obra.rejas[0].config.frame.horizontalProfile = 'round';
+    obra.rejas[0].config.frame.assembly = 'horizontal-full';
+    const parsed = parseObra(JSON.stringify(obra));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.rejas[0].config.frame.assembly).toBe('vertical-full');
   });
 
   it('conserva los precios por sección al recargar (claves dinámicas)', () => {

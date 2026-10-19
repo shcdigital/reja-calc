@@ -24,8 +24,8 @@ function RejaBlock({ r }: { r: RejaResult }) {
       <table className="ws-table">
         <tbody>
           <tr><th>Marco</th><td>{dv.horizontalRound
-            ? `Laterales: ${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista · MS/MI: ${horizontalLabel}, Ø${fmtMm(dv.frameHorizontalMm)} a la vista`
-            : `${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista`} · {config.frame.assembly === 'horizontal-full' ? 'tramos horizontales completos, laterales entre ellos' : 'laterales completos, tramos horizontales entre ellos'}</td></tr>
+            ? `Laterales: ${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista · MS/MI: ${horizontalLabel}, Ø${fmtMm(dv.frameHorizontalMm)} a la vista, alojados con el borde del agujero a ${fmtMm(dv.horizontalEdgeMm)} mm del extremo`
+            : `${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista`} · {dv.horizontalRound || config.frame.assembly === 'vertical-full' ? 'laterales completos, tramos horizontales entre ellos' : 'tramos horizontales completos, laterales entre ellos'}</td></tr>
           <tr><th>Refuerzo central</th><td>{dv.withReinforcement
             ? `${reinfLabel}, centrado a ${fmtMm(W / 2)} · ${config.bars.crossing === 'split' ? 'barrotes en dos tramos' : 'barrotes pasantes (agujeros en el refuerzo)'}`
             : 'No lleva: barrotes continuos de lateral a lateral'}</td></tr>
@@ -33,6 +33,9 @@ function RejaBlock({ r }: { r: RejaResult }) {
           <tr><th>Extremos de los barrotes</th><td>{dv.barsInLateral
             ? `Entran ${fmtMm(dv.lateralPenetrationMm)} en un agujero Ø${fmtMm(dv.lateralHoleMm)} de cada lateral y se frenan a ${fmtMm(config.fabrication.socketSetbackMm)} de la cara exterior (agujero oculto; el barrote queda centrado y soldado)`
             : 'A tope contra la cara interior de los laterales'}</td></tr>
+          {dv.horizontalRound && (
+            <tr><th>Extremos de MS/MI</th><td>Alojados {fmtMm(dv.lateralPenetrationMm)} en un agujero Ø{fmtMm(dv.lateralHoleMm)} de cada lateral, con el borde del agujero a {fmtMm(dv.horizontalEdgeMm)} mm del extremo y la punta frenada a {fmtMm(config.fabrication.socketSetbackMm)} de la cara exterior</td></tr>
+          )}
           <tr><th>Vano interior</th><td>{fmtMm(dv.innerWidthMm)} × {fmtMm(dv.innerHeightMm)}</td></tr>
           <tr><th>Disco de corte</th><td>{fmtMm(config.fabrication.kerfMm)} · holgura por unión: {fmtMm(config.fabrication.jointGapMm)}</td></tr>
         </tbody>

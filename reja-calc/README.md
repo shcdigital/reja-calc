@@ -22,7 +22,7 @@ Todo corre en el navegador: sin backend, sin cuentas y sin servicios externos. L
 - Medidas exteriores en **mm o cm**.
 - **Separación libre** entre barrotes: cantidad automática (a partir de la separación máxima deseada y una mínima) o fija, con distribución simétrica y avisos cuando los límites son incompatibles.
 - **Armado del marco**: tramos horizontales completos con laterales entre ellos, o laterales completos.
-- **Tramos superior e inferior (MS/MI)**: con el **mismo perfil rectangular que los laterales** o de **caño redondo** (el mismo de los barrotes). Con caño redondo, el vano interior se mide entre sus diámetros y esas piezas se cortan y cuentan junto con los barrotes.
+- **Tramos superior e inferior (MS/MI)**: con el **mismo perfil rectangular que los laterales** o de **caño redondo** (el mismo de los barrotes). Con caño redondo, los tramos se alojan en agujeros de los laterales (que van completos), con el borde del agujero a **0,5 cm** del extremo; el vano interior descuenta ese margen y el diámetro, y esas piezas se cortan y cuentan junto con los barrotes.
 - **Refuerzo central opcional** (check): con el mismo perfil del marco o uno propio, y con dos formas de cruce:
   - **dos tramos** por barrote, que terminan contra el refuerzo, o
   - **pasante**: un barrote continuo que atraviesa el refuerzo por agujeros.
@@ -83,7 +83,7 @@ origen **GitHub Actions** (`gh api -X PUT repos/<usuario>/<repo>/pages -f build_
    - **1. Ventana**: medidas exteriores.
    - **2. Perfiles**: caño redondo, perfil rectangular de los laterales y su orientación, perfil de los tramos superior e inferior (mismo rectangular o caño redondo); refuerzo central sí/no y, si lleva, con qué perfil.
    - **3. Barrotes**: separación libre máxima/mínima o cantidad fija.
-   - **4. Armado y refuerzo**: armado del marco, cruce del refuerzo, extremos de los barrotes, holgura por unión, holgura del agujero y freno de la punta.
+   - **4. Armado y refuerzo**: armado del marco, cruce del refuerzo, extremos de los barrotes, holgura por unión, holgura del agujero, freno de la punta y margen del agujero de MS/MI al borde del lateral.
 4. **5. Parámetros de corte (obra)**: disco, largo comercial, refilado, largo mínimo de sobrante y reutilización.
 5. Revisá **6. Vista previa**, **7. Lista de materiales** y **8. Plan de cortes** (podés ver toda la obra o solo los caños de la reja activa) e imprimí la hoja de taller.
 6. En **9. Presupuesto y exportación**, activá el presupuesto, cargá precios por caño, consumibles y la mano de obra de cada reja.
@@ -133,10 +133,10 @@ En la raíz del repositorio: `openspec/` (specs y cambios) y `.github/workflows/
 
 Todas las longitudes se manejan en milímetros y los largos de corte se redondean a 0,1 mm.
 
-- **Vano interior:** `Wi = W − 2·pf`, `Hi = H − 2·pfH`, donde `pf` es lo que queda a la vista del perfil de los laterales y `pfH` el de los tramos superior e inferior (igual a `pf`, o el diámetro `d` si son de caño redondo).
+- **Vano interior:** `Wi = W − 2·pf`, `Hi = H − 2·pfH`, donde `pf` es lo que queda a la vista del perfil de los laterales y `pfH` el de los tramos superior e inferior (igual a `pf`, o el diámetro `d` si son de caño redondo; en ese caso se suma el margen de 5 mm del borde del agujero al extremo del lateral).
 - **Barrotes:** separación libre uniforme `g = (Hi − n·d) / (n + 1)`, con `n` automático (`n = max(1, ceil((Hi − g_máx) / (d + g_máx)))`) o fijo.
 - **Extremos:** `endInset = pf + jg` si van a tope; `endInset = pared + freno` si entran en el agujero del lateral, así que el largo del barrote es `W − 2·endInset` (continuo) o `(W/2 − rw/2 − jg) − endInset` (en dos tramos).
-- **Marco:** según el armado, los tramos completos miden `W` (u `H`) y los que van entre ellos descuentan el borde que los recibe (`pf` en los laterales, `pfH` en MS/MI) y la holgura por unión.
+- **Marco:** según el armado, los tramos completos miden `W` (u `H`) y los que van entre ellos descuentan el borde que los recibe (`pf` en los laterales, `pfH` en MS/MI) y la holgura por unión. Con MS/MI de caño redondo los laterales van siempre completos y MS/MI entran en sus agujeros: largo `W − 2·(pared + freno)`, con el borde del agujero a 5 mm del extremo del lateral.
 - **Corte:** por cada caño, `Σ piezas + (n−1)·disco ≤ largo utilizable`, repartiendo disco, refilado y sobrante final de forma exacta.
 - **Presupuesto:** `total = materiales + consumibles + mano de obra`.
 
@@ -146,7 +146,7 @@ Todas las longitudes se manejan en milímetros y los largos de corte se redondea
 
 - La obra completa se guarda en `localStorage` bajo `reja:obra:v1`; el catálogo de perfiles editado en `reja:catalog:v1`; los sobrantes en `reja:inventory:v1`; y la unidad (mm/cm) en `reja:unit:v1`.
 - Los datos de la versión de **una sola reja** (`reja:config:v1`, `reja:job:v1`) se migran automáticamente la primera vez y **no se borran**.
-- Al leer datos guardados, los campos que falten toman el valor por defecto (por ejemplo, una obra vieja sin los extremos de barrotes queda **a tope** y con freno 1 mm). Nada se rompe al actualizar.
+- Al leer datos guardados, los campos que falten toman el valor por defecto (por ejemplo, una obra vieja sin los extremos de barrotes queda **a tope**, con freno 1 mm y margen de MS/MI 5 mm). Una obra con MS/MI redondos y armado «tramos horizontales completos» se normaliza a «laterales completos». Nada se rompe al actualizar.
 - «Restaurar valores iniciales» devuelve todo a los valores por defecto.
 
 ## Pruebas

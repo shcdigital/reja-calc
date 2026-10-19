@@ -237,13 +237,13 @@ export function App() {
             <OrientationSelect label="Orientación del perfil del marco" profile={frameP} value={config.frame.orientation} onChange={(o) => setConfig((c) => { c.frame.orientation = o; })} />
             <label className="field">
               <span className="field-label">Tramos superior e inferior (MS / MI)</span>
-              <select value={config.frame.horizontalProfile} onChange={(e) => setConfig((c) => { c.frame.horizontalProfile = e.target.value as ProjectConfig['frame']['horizontalProfile']; })}>
+              <select value={config.frame.horizontalProfile} onChange={(e) => setConfig((c) => { c.frame.horizontalProfile = e.target.value as ProjectConfig['frame']['horizontalProfile']; if (c.frame.horizontalProfile === 'round') c.frame.assembly = 'vertical-full'; })}>
                 <option value="same-as-sides">Mismo perfil que los laterales (rectangular)</option>
                 <option value="round">Caño redondo de los barrotes{round ? ` (Ø${round.odMm} mm)` : ''}</option>
               </select>
             </label>
             <p className="muted small">{config.frame.horizontalProfile === 'round'
-              ? 'Los tramos superior e inferior son de caño redondo: el alto útil se mide entre sus diámetros y las piezas redondas se cortan y cuentan junto con los barrotes.'
+              ? 'Los tramos superior e inferior son de caño redondo y se alojan en agujeros de los laterales, con los laterales completos. El alto útil descuenta el diámetro y el margen de 5 mm al borde.'
               : 'Los cuatro tramos del marco usan el mismo perfil rectangular.'}</p>
             {recommended && (
               <p className="hint">
@@ -334,8 +334,11 @@ export function App() {
             <h2>4. Armado y refuerzo</h2>
             <fieldset>
               <legend>Armado del marco</legend>
-              <label className="radio"><input type="radio" name="asm" checked={config.frame.assembly === 'horizontal-full'} onChange={() => setConfig((c) => { c.frame.assembly = 'horizontal-full'; })} /> Tramos horizontales completos; los laterales van entre ellos</label>
-              <label className="radio"><input type="radio" name="asm" checked={config.frame.assembly === 'vertical-full'} onChange={() => setConfig((c) => { c.frame.assembly = 'vertical-full'; })} /> Laterales completos; los tramos horizontales van entre ellos</label>
+              <label className="radio"><input type="radio" name="asm" disabled={config.frame.horizontalProfile === 'round'} checked={config.frame.assembly === 'horizontal-full' && config.frame.horizontalProfile !== 'round'} onChange={() => setConfig((c) => { c.frame.assembly = 'horizontal-full'; })} /> Tramos horizontales completos; los laterales van entre ellos</label>
+              <label className="radio"><input type="radio" name="asm" checked={config.frame.assembly === 'vertical-full' || config.frame.horizontalProfile === 'round'} onChange={() => setConfig((c) => { c.frame.assembly = 'vertical-full'; })} /> Laterales completos; los tramos horizontales van entre ellos</label>
+              {config.frame.horizontalProfile === 'round' && (
+                <p className="hint">Con MS/MI de caño redondo los laterales van completos para poder alojar los tramos en sus agujeros.</p>
+              )}
             </fieldset>
             {config.reinforcement.enabled ? (
               <fieldset>
@@ -353,15 +356,21 @@ export function App() {
             </fieldset>
             <div className="row">
               <NumField label="Holgura por unión (por extremo)" suffix="mm" value={config.fabrication.jointGapMm} min={0} hint="Se descuenta en cada extremo que se suelda a tope." onChange={(v) => setConfig((c) => { c.fabrication.jointGapMm = v; })} />
-              {((config.reinforcement.enabled && config.bars.crossing === 'through') || config.bars.ends === 'inserted') && (
+              {((config.reinforcement.enabled && config.bars.crossing === 'through') || config.bars.ends === 'inserted' || config.frame.horizontalProfile === 'round') && (
                 <NumField label="Holgura del agujero" suffix="mm" value={config.fabrication.throughHoleClearanceMm} min={0} hint="Diámetro del agujero = caño + esta holgura." onChange={(v) => setConfig((c) => { c.fabrication.throughHoleClearanceMm = v; })} />
               )}
-              {config.bars.ends === 'inserted' && (
+              {(config.bars.ends === 'inserted' || config.frame.horizontalProfile === 'round') && (
                 <NumField label="Freno de la punta" suffix="mm" value={config.fabrication.socketSetbackMm} min={0} hint="Cuánto se frena la punta antes de la cara opuesta del lateral." onChange={(v) => setConfig((c) => { c.fabrication.socketSetbackMm = v; })} />
+              )}
+              {config.frame.horizontalProfile === 'round' && (
+                <NumField label="Margen del agujero de MS/MI al borde" suffix="mm" value={config.fabrication.horizontalEdgeMm} min={0} hint="Distancia desde el extremo superior/inferior del lateral hasta el borde del agujero (0,5 cm por defecto)." onChange={(v) => setConfig((c) => { c.fabrication.horizontalEdgeMm = v; })} />
               )}
             </div>
             {config.bars.ends === 'inserted' && design.derived && (
               <p className="hint">El barrote entra {fmtMm(design.derived.lateralPenetrationMm)} en cada lateral por un agujero Ø{fmtMm(design.derived.lateralHoleMm)} y se frena a {fmtMm(config.fabrication.socketSetbackMm)} de la cara exterior, que queda lisa. Largo del barrote continuo: {fmtMm(W - 2 * (design.derived.frameInPlaneMm - design.derived.lateralPenetrationMm))}.</p>
+            )}
+            {config.frame.horizontalProfile === 'round' && design.derived && (
+              <p className="hint">MS/MI entran {fmtMm(design.derived.lateralPenetrationMm)} en cada lateral por un agujero Ø{fmtMm(design.derived.lateralHoleMm)}, con el borde del agujero a {fmtMm(design.derived.horizontalEdgeMm)} mm del extremo del lateral. Largo de cada tramo: {fmtMm(W - 2 * (design.derived.frameInPlaneMm - design.derived.lateralPenetrationMm))}.</p>
             )}
             <p className="hint">{STRUCTURAL_DISCLAIMER}</p>
           </section>
@@ -394,7 +403,7 @@ export function App() {
               <dl className="facts">
                 <div><dt>Vano interior</dt><dd>{fmtMm(design.derived.innerWidthMm)} × {fmtMm(design.derived.innerHeightMm)}</dd></div>
                 <div><dt>Marco a la vista</dt><dd>{design.derived.horizontalRound
-                  ? `Laterales ${fmtMm(design.derived.frameInPlaneMm)} · MS/MI caño redondo Ø${fmtMm(design.derived.frameHorizontalMm)}`
+                  ? `Laterales ${fmtMm(design.derived.frameInPlaneMm)} · MS/MI caño redondo Ø${fmtMm(design.derived.frameHorizontalMm)}, agujeros a ${fmtMm(design.derived.horizontalEdgeMm)} mm del borde`
                   : `${fmtMm(design.derived.frameInPlaneMm)} (${fmtMm(design.derived.frameDepthMm)} de profundidad)`}</dd></div>
                 {design.derived.withReinforcement
                   ? <div><dt>Refuerzo central</dt><dd>{fmtMm(design.derived.reinfInPlaneMm)} a la vista · sector {fmtMm(design.derived.sectorWidthMm)}</dd></div>
@@ -402,6 +411,9 @@ export function App() {
                 <div><dt>Extremos de los barrotes</dt><dd>{design.derived.barsInLateral
                   ? `Entran ${fmtMm(design.derived.lateralPenetrationMm)} en cada lateral (agujero Ø${fmtMm(design.derived.lateralHoleMm)})`
                   : 'A tope contra la cara interior del lateral'}</dd></div>
+                {design.derived.horizontalRound && (
+                  <div><dt>Extremos de MS/MI</dt><dd>Alojados {fmtMm(design.derived.lateralPenetrationMm)} en cada lateral (agujero Ø{fmtMm(design.derived.lateralHoleMm)})</dd></div>
+                )}
               </dl>
             )}
           </section>
@@ -563,7 +575,7 @@ export function App() {
 
       <footer className="foot" data-area="screen">
         <button type="button" className="link" onClick={() => { if (confirm('¿Restaurar todos los valores iniciales? Se conservan los sobrantes guardados.')) { setObra(createObra()); setCatalog(DEFAULT_CATALOG); } }}>Restaurar valores iniciales</button>
-        <span className="muted small">Marco a la vista {frameP ? fmtMm(inPlaneDim(frameP, config.frame.orientation)) : '—'}{frameP ? `, ${fmtMm(depthDim(frameP, config.frame.orientation))} de profundidad` : ''}{design.derived?.horizontalRound && round ? `, con MS/MI de caño redondo Ø${fmtMm(round.odMm)}` : ''}.</span>
+        <span className="muted small">Marco a la vista {frameP ? fmtMm(inPlaneDim(frameP, config.frame.orientation)) : '—'}{frameP ? `, ${fmtMm(depthDim(frameP, config.frame.orientation))} de profundidad` : ''}{design.derived?.horizontalRound && round ? `, con MS/MI de caño redondo Ø${fmtMm(round.odMm)} a ${fmtMm(design.derived.horizontalEdgeMm)} mm del borde` : ''}.</span>
       </footer>
     </div>
   );

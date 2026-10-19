@@ -14,7 +14,8 @@ Los largos de corte se redondean a 0,1 mm.
 | d | Diámetro exterior del caño redondo |
 | pared | Espesor de pared del perfil rectangular (marco y refuerzo) |
 | jg | Holgura por unión: se descuenta en **cada extremo** que se suelda a tope (por defecto 0) |
-| freno | Cuánto se frena la punta del barrote antes de la cara opuesta del lateral (por defecto 1) |
+| freno | Cuánto se frena la punta del barrote o de MS/MI antes de la cara opuesta del lateral (por defecto 1) |
+| margen | Distancia desde el extremo superior/inferior del lateral hasta el borde del agujero de MS/MI redondos (por defecto 5 = 0,5 cm) |
 | k | Ancho del disco de corte (por defecto 3) |
 
 Orientación del perfil rectangular: «lado menor a la vista» (el lado mayor sale hacia afuera) o «lado mayor a la vista».
@@ -23,10 +24,14 @@ Recomendación inicial: el perfil de menor sección cuyo lado mayor sea ≥ d (e
 ## Vano interior
 
 ```
-Wi = W − 2·pf        Hi = H − 2·pfH
+Wi = W − 2·pf
+Hi = H − 2·pfH                    (MS/MI rectangulares)
+Hi = H − 2·(margen + (Øagujero + d)/2)   (MS/MI de caño redondo)
 ```
 
 `pfH` es el perfil de los tramos superior e inferior: el mismo rectangular del marco (`pf`) o, a elección, el caño redondo de los barrotes (su diámetro `d`). Los laterales son siempre el perfil rectangular del marco.
+
+Con MS/MI de caño redondo, los tramos se alojan en agujeros de la cara interior de los laterales. Por eso los laterales van **completos** (armado «laterales completos») y el borde del agujero queda a `margen` del extremo superior/inferior del lateral. El borde del caño arranca en `margen + (Øagujero − d)/2`, y de ahí sale el alto útil.
 
 Con refuerzo central, el ancho libre a cada lado del refuerzo es `sector = (Wi − rw) / 2`.
 Sin refuerzo central, `rw = 0`, `sector = Wi / 2` y los barrotes ocupan todo el vano.
@@ -42,16 +47,19 @@ n·d + (n + 1)·g = Hi   →   g = (Hi − n·d) / (n + 1)
 - **Automático:** `n = max(1, ceil((Hi − g_máx) / (d + g_máx)))` — el menor n con `g ≤ g_máx`.
 - Si ese `g` queda por debajo de la separación mínima, los dos límites son incompatibles: se mantiene la cuenta que respeta el máximo, se avisa y se proponen alternativas (n y n−1).
 - **Manual:** se usa el n indicado; se avisa si `g > g_máx` o `g < g_mín`; error si `g ≤ 0`.
-- Borde superior del barrote i (i = 0…n−1, desde el borde exterior): `pfH + g + i·(d + g)`. La distribución es simétrica.
+- Borde superior del barrote i (i = 0…n−1, desde el borde exterior): `innerTop + g + i·(d + g)`, con `innerTop = pfH` si MS/MI son rectangulares o `innerTop = margen + (Øagujero + d)/2` si son redondos. La distribución es simétrica.
 
 ## Marco
 
 | Armado | Tramos superior/inferior (MS, MI) | Laterales (LI, LD) |
 |---|---|---|
-| Tramos horizontales completos | `W` | `Hi − 2·jg` (entre MS y MI) |
-| Laterales completos | `Wi − 2·jg` (entre LI y LD) | `H` |
+| Tramos horizontales completos (MS/MI rectangulares) | `W` | `Hi − 2·jg` (entre MS y MI) |
+| Laterales completos (MS/MI rectangulares) | `Wi − 2·jg` (entre LI y LD) | `H` |
+| MS/MI de caño redondo (siempre laterales completos) | `W − 2·(pared + freno)` (alojados) | `H` |
 
-Los tramos MS/MI usan el perfil rectangular del marco o, si se elige, el caño redondo de los barrotes. Con caño redondo, `pfH = d`, así que el vano interior (`Hi`) y el largo de los laterales que van entre MS y MI se miden con ese diámetro; las piezas MS/MI comparten sección con los barrotes y se cortan y cuentan juntas en el plan.
+Los tramos MS/MI usan el perfil rectangular del marco o, si se elige, el caño redondo de los barrotes. Con caño redondo, los MS/MI **siempre se alojan** en agujeros de los laterales, que van completos: su largo es `W − 2·(pared + freno)` y comparten sección con los barrotes. El armado «tramos horizontales completos» no aplica a MS/MI redondos.
+
+Agujeros de los laterales: Ø `d + holgura`, en la cara interior. Si los barrotes van alojados, uno por barrote; si MS/MI son redondos, además uno para MS y otro para MI con el eje a `margen + Øagujero/2` del extremo superior e inferior. La cara exterior queda lisa. Aviso si el agujero no entra en el hueco del perfil (`Øagujero > profundidad − 2·pared`).
 
 ## Refuerzo central (RC) — opcional
 
@@ -71,7 +79,7 @@ endInset = pared + freno      (alojado: atraviesa la pared interior y se frena a
 lateralPenetration = pf − endInset      → cuánto entra en cada lateral
 ```
 
-Agujero del lateral (solo en modo alojado): Ø `d + holgura`, en la **cara interior**, uno por barrote y a la altura de su eje. La cara exterior queda lisa. Aviso si `d + holgura > profundidad_del_marco − 2·pared` (el agujero tocaría las paredes laterales del perfil). En el barrote **pasante** por el refuerzo central rige la misma regla: aviso si `d + holgura > profundidad_del_refuerzo − 2·pared`.
+Agujero del lateral para los barrotes (solo en modo alojado): Ø `d + holgura`, en la **cara interior**, uno por barrote y a la altura de su eje. La cara exterior queda lisa. Aviso si `d + holgura > profundidad_del_marco − 2·pared` (el agujero tocaría las paredes laterales del perfil). En el barrote **pasante** por el refuerzo central rige la misma regla: aviso si `d + holgura > profundidad_del_refuerzo − 2·pared`.
 
 - **Sin refuerzo (check desactivado):** 1 pieza `B01…Bnn` por barrote, de largo `W − 2·endInset`, continua de lateral a lateral.
 - **Dos tramos (split):** por barrote, 2 piezas `B01-I` / `B01-D` de largo `(W/2 − rw/2 − jg) − endInset` (`sector − 2·jg` si van a tope). No hay superposición con el refuerzo.
@@ -130,5 +138,5 @@ El total **no** incluye margen de ganancia ni impuestos. Si falta el precio de u
 
 ## Decisiones configurables
 
-Largo comercial, disco, holgura por unión, refilado de punta, perfil de los tramos superior e inferior (mismo rectangular del marco o caño redondo de los barrotes), extremos de los barrotes (a tope o alojados en un agujero del lateral), freno de la punta, holgura de agujero, medidas reales de cada perfil, largo mínimo de sobrante reutilizable, precios por caño, consumibles y valor hora de mano de obra.
+Largo comercial, disco, holgura por unión, refilado de punta, perfil de los tramos superior e inferior (mismo rectangular del marco o caño redondo de los barrotes), extremos de los barrotes (a tope o alojados en un agujero del lateral), freno de la punta, margen del agujero de MS/MI al borde del lateral, holgura de agujero, medidas reales de cada perfil, largo mínimo de sobrante reutilizable, precios por caño, consumibles y valor hora de mano de obra.
 Sin cortes a inglete: todas las uniones del marco son a tope a 90°.

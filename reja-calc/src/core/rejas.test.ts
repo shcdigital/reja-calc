@@ -152,12 +152,14 @@ describe('Armado del marco y refuerzo', () => {
           const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
           const overlap = ox > 1e-6 && oy > 1e-6;
           // cruces admitidos: barrote continuo que atraviesa el refuerzo por un agujero,
-          // y barrote alojado en el agujero del lateral.
+          // barrote alojado en el agujero del lateral y MS/MI redondos alojados en el lateral.
           const isBar = (r: { type: string }) => r.type === 'bar';
+          const isHorizontal = (r: { type: string }) => r.type === 'frame-top' || r.type === 'frame-bottom';
           const lateral = (r: { type: string }) => r.type === 'frame-left' || r.type === 'frame-right';
           const throughReinf = crossing === 'through' && ((isBar(a) && b.type === 'reinforcement') || (isBar(b) && a.type === 'reinforcement'));
-          const intoLateral = ends === 'inserted' && ((isBar(a) && lateral(b)) || (isBar(b) && lateral(a)));
-          if (!throughReinf && !intoLateral) expect(overlap, `${a.pieceId} × ${b.pieceId}`).toBe(false);
+          const barIntoLateral = ends === 'inserted' && ((isBar(a) && lateral(b)) || (isBar(b) && lateral(a)));
+          const horizontalIntoLateral = horizontals === 'round' && ((isHorizontal(a) && lateral(b)) || (isHorizontal(b) && lateral(a)));
+          if (!throughReinf && !barIntoLateral && !horizontalIntoLateral) expect(overlap, `${a.pieceId} × ${b.pieceId}`).toBe(false);
         }
         // coincidencia layout ↔ piezas
         for (const p of d.pieces) {
@@ -200,16 +202,20 @@ describe('Marco con tramos superior e inferior (MS/MI) de caño redondo', () => 
     expect(base.derived!.frameHorizontalMm).toBe(20);
   });
 
-  it('el alto útil se mide con el diámetro del caño redondo', () => {
+  it('el alto útil se mide con el diámetro del caño redondo y el margen al borde', () => {
     expect(d.issues.filter((i) => i.level === 'error')).toEqual([]);
     expect(d.derived!.horizontalRound).toBe(true);
     expect(d.derived!.frameInPlaneMm).toBe(20); // laterales: rectangular 20 a la vista
     expect(d.derived!.frameHorizontalMm).toBe(31.75); // MS/MI: caño Ø31,75
+    expect(d.derived!.horizontalEdgeMm).toBe(5); // borde del agujero a 0,5 cm del extremo
+    expect(d.derived!.barsInLateral).toBe(false); // los barrotes van a tope...
+    expect(d.derived!.lateralHoleMm).toBe(32.75); // ...pero MS/MI igual se alojan
     expect(d.derived!.innerWidthMm).toBe(1460);
-    expect(d.derived!.innerHeightMm).toBe(536.5);
+    // 600 − 2 × (5,5 del borde al caño + 31,75 del caño) = 525,5
+    expect(d.derived!.innerHeightMm).toBe(525.5);
   });
 
-  it('MS y MI salen del caño redondo, con la misma sección que los barrotes', () => {
+  it('MS y MI salen del caño redondo, alojados en los laterales', () => {
     const roundKey = sectionKey(findRound(catalog, 'r-1q')!);
     const ms = d.pieces.find((p) => p.id === 'MS')!;
     const mi = d.pieces.find((p) => p.id === 'MI')!;
@@ -217,25 +223,61 @@ describe('Marco con tramos superior e inferior (MS/MI) de caño redondo', () => 
     expect(mi.profileLabel).toMatch(/Caño redondo/);
     expect(ms.sectionKey).toBe(roundKey);
     expect(mi.sectionKey).toBe(roundKey);
-    expect(lens(d, 'MS')).toEqual([1500]);
-    expect(lens(d, 'MI')).toEqual([1500]);
-    expect(lens(d, 'LI')).toEqual([536.5]);
-    expect(lens(d, 'LD')).toEqual([536.5]);
-    expect(lens(d, 'RC')).toEqual([536.5]);
+    // W − 2 × (pared de 2 + freno de 1) = 1494
+    expect(lens(d, 'MS')).toEqual([1494]);
+    expect(lens(d, 'MI')).toEqual([1494]);
+    expect(lens(d, 'LI')).toEqual([600]);
+    expect(lens(d, 'LD')).toEqual([600]);
+    expect(lens(d, 'RC')).toEqual([525.5]);
+    const msBox = d.layout.find((r) => r.pieceId === 'MS')!;
+    const miBox = d.layout.find((r) => r.pieceId === 'MI')!;
+    expect(msBox).toMatchObject({ x: 3, y: 5.5, w: 1494, h: 31.75 });
+    expect(miBox).toMatchObject({ x: 3, y: 562.75, w: 1494, h: 31.75 });
   });
 
   it('los barrotes arrancan debajo del caño redondo y la separación sigue siendo uniforme', () => {
     const { topsMm, gapMm, count } = d.distribution!;
+    const innerTop = d.derived!.horizontalEdgeMm + (d.derived!.lateralHoleMm - 31.75) / 2 + 31.75;
     expect(count).toBe(4);
-    near(topsMm[0] - 31.75, gapMm);
-    near(600 - 31.75 - (topsMm[count - 1] + 31.75), gapMm);
+    near(topsMm[0] - innerTop, gapMm);
+    near(600 - innerTop - (topsMm[count - 1] + 31.75), gapMm);
+  });
+
+  it('los laterales llevan agujeros para MS/MI y, si los barrotes entran, también para ellos', () => {
+    for (const id of ['LI', 'LD']) {
+      const p = d.pieces.find((x) => x.id === id)!;
+      expect(p.notes).toMatch(/Perforar 2 agujeros Ø32.75 mm/);
+      expect(p.notes).toMatch(/uno para MS y otro para MI/);
+      expect(p.notes).toMatch(/21,4 mm de los bordes superior e inferior/);
+    }
+    const withBars = computeDesign(makeConfig({ horizontals: 'round', ends: 'inserted' }), catalog);
+    for (const id of ['LI', 'LD']) {
+      const p = withBars.pieces.find((x) => x.id === id)!;
+      expect(p.notes).toMatch(/Perforar 6 agujeros Ø32.75 mm/);
+      expect(p.notes).toMatch(/uno por barrote/);
+    }
+  });
+
+  it('el armado horizontal-full se convierte en laterales completos', () => {
+    const full = computeDesign(makeConfig({ horizontals: 'round', assembly: 'horizontal-full' }), catalog);
+    expect(lens(full, 'LI')).toEqual([600]);
+    expect(lens(full, 'MS')).toEqual([1494]);
+    expect(full.layout.find((r) => r.pieceId === 'MS')).toMatchObject({ x: 3, y: 5.5 });
+  });
+
+  it('el margen del agujero al borde es configurable', () => {
+    const e = computeDesign(makeConfig({ horizontals: 'round', horizontalEdge: 10 }), catalog);
+    // 600 − 2 × (10 de margen + 0,5 de holgura/2 + 31,75 del caño) = 515,5
+    expect(e.derived!.innerHeightMm).toBe(515.5);
+    expect(e.layout.find((r) => r.pieceId === 'MS')).toMatchObject({ y: 10.5 });
+    expect(e.layout.find((r) => r.pieceId === 'MI')).toMatchObject({ y: 600 - 10.5 - 31.75 });
   });
 
   it('el plan de cortes suma MS/MI al caño redondo', () => {
     const r = computeProject(makeConfig({ horizontals: 'round' }), catalog);
     const round = r.materials.find((m) => m.sectionKey.startsWith('round'))!;
     const rect = r.materials.find((m) => m.sectionKey.startsWith('rect'))!;
-    expect(round.piecesLengthMm).toBe(8760); // 8 barrotes de 720 + MS/MI de 1500
+    expect(round.piecesLengthMm).toBe(8748); // 8 barrotes de 720 + MS/MI de 1494
     expect(round.newBarsCount).toBe(2);
     expect(rect.newBarsCount).toBe(1); // LI + LD + RC
   });

@@ -112,6 +112,11 @@ export interface ProjectConfig {
     throughHoleClearanceMm: number;
     /** Distancia a la que se frena la punta del barrote antes de la pared opuesta del lateral. */
     socketSetbackMm: number;
+    /**
+     * Margen desde el extremo superior/inferior del lateral hasta el borde del agujero
+     * de los tramos MS/MI cuando son de caño redondo (0,5 cm por defecto).
+     */
+    horizontalEdgeMm: number;
   };
   stock: {
     /** Usar sobrantes guardados del inventario. */
@@ -206,6 +211,8 @@ export interface DesignDerived {
   frameHorizontalMm: number;
   /** true si los tramos superior e inferior (MS/MI) son de caño redondo. */
   horizontalRound: boolean;
+  /** Margen del borde del agujero de MS/MI al extremo del lateral (0 si no son redondos). */
+  horizontalEdgeMm: number;
   /** Si la reja lleva refuerzo central. */
   withReinforcement: boolean;
   reinfInPlaneMm: number;
@@ -213,9 +220,9 @@ export interface DesignDerived {
   sectorWidthMm: number;
   /** Si los barrotes entran en un agujero del lateral (false = a tope contra la cara interior). */
   barsInLateral: boolean;
-  /** Cuánto entra el barrote en cada lateral, medido desde su cara interior (0 si van a tope). */
+  /** Cuánto entran en cada lateral los barrotes alojados o los MS/MI redondos, desde su cara interior (0 si nada entra). */
   lateralPenetrationMm: number;
-  /** Diámetro del agujero que recibe el barrote en cada lateral (0 si van a tope). */
+  /** Diámetro de los agujeros de los laterales (barrotes alojados y/o MS/MI redondos); 0 si no hay agujeros. */
   lateralHoleMm: number;
   barOdMm: number;
   barSectionKey: string;

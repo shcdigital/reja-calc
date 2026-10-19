@@ -95,7 +95,7 @@ export function buildObraDocument(obra: Obra, result: ObraResult, budget: Budget
     if (d.derived && d.distribution) {
       lines.push({
         kind: 'text',
-        text: `Marco a la vista ${fmtMm(d.derived.frameInPlaneMm)}${d.derived.horizontalRound ? ` (MS/MI de caño redondo Ø${fmtMm(d.derived.frameHorizontalMm)})` : ''} · vano ${fmtMm(d.derived.innerWidthMm)} × ${fmtMm(d.derived.innerHeightMm)} · ${d.distribution.count} barrotes (separación ${fmtMm(Math.round(d.distribution.gapMm * 10) / 10)})`,
+        text: `Marco a la vista ${fmtMm(d.derived.frameInPlaneMm)}${d.derived.horizontalRound ? ` (MS/MI de caño redondo Ø${fmtMm(d.derived.frameHorizontalMm)}, agujeros a ${fmtMm(d.derived.horizontalEdgeMm)} mm del borde)` : ''} · vano ${fmtMm(d.derived.innerWidthMm)} × ${fmtMm(d.derived.innerHeightMm)} · ${d.distribution.count} barrotes (separación ${fmtMm(Math.round(d.distribution.gapMm * 10) / 10)})`,
       });
     }
     lines.push({ kind: 'plano', text: `Plano de ${r.reja.name}`, rejaId: r.reja.id });

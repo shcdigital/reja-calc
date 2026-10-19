@@ -33,6 +33,7 @@ export const DEFAULT_CONFIG: ProjectConfig = {
     endTrimMm: 0,
     throughHoleClearanceMm: 1,
     socketSetbackMm: 1,
+    horizontalEdgeMm: 5,
   },
   stock: { reuseOffcuts: false, minReusableMm: 300 },
   costs: {

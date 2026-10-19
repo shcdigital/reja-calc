@@ -210,6 +210,13 @@ function isValidObra(v: unknown): v is Obra {
 }
 
 /** Completa campos faltantes de una obra guardada con los valores por defecto. */
+function normalizeConfig(saved: unknown): ProjectConfig {
+  const config = deepFill(DEFAULT_CONFIG, saved) as ProjectConfig;
+  // Los MS/MI redondos se alojan en los laterales, que deben ser completos.
+  if (config.frame.horizontalProfile === 'round') config.frame.assembly = 'vertical-full';
+  return config;
+}
+
 function normalizeObra(v: Obra): Obra {
   return {
     id: typeof v.id === 'string' ? v.id : makeId(),
@@ -220,7 +227,7 @@ function normalizeObra(v: Obra): Obra {
     rejas: v.rejas.map((r) => ({
       id: r.id,
       name: r.name,
-      config: deepFill(DEFAULT_CONFIG, r.config) as ProjectConfig,
+      config: normalizeConfig(r.config),
       labor: deepFill(DEFAULT_LABOR, r.labor) as RejaLabor,
     })),
   };
@@ -256,7 +263,7 @@ export function migrateLegacyObra(store: StorageLike | null): Obra | null {
   obra.name = safeGet(store, LEGACY_JOB_KEY) ?? '';
   const reja = obra.rejas[0];
   reja.name = 'Reja 1';
-  reja.config = deepFill(DEFAULT_CONFIG, legacy) as ProjectConfig;
+  reja.config = normalizeConfig(legacy);
   const fab = reja.config.fabrication;
   const stock = reja.config.stock;
   obra.cutting = {
