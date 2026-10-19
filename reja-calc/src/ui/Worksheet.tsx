@@ -27,7 +27,7 @@ function RejaBlock({ r }: { r: RejaResult }) {
             ? `Laterales: ${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista · MS/MI: ${horizontalLabel}, Ø${fmtMm(dv.frameHorizontalMm)} a la vista, alojados con el borde del agujero a ${fmtMm(dv.horizontalEdgeMm)} mm del extremo`
             : `${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista`} · {dv.horizontalRound || config.frame.assembly === 'vertical-full' ? 'laterales completos, tramos horizontales entre ellos' : 'tramos horizontales completos, laterales entre ellos'}</td></tr>
           <tr><th>Refuerzo central</th><td>{dv.withReinforcement
-            ? `${reinfLabel}, centrado a ${fmtMm(W / 2)} · ${config.bars.crossing === 'split' ? 'barrotes en dos tramos' : 'barrotes pasantes (agujeros en el refuerzo)'}`
+            ? `${reinfLabel}, centrado a ${fmtMm(W / 2)} · ${config.bars.crossing === 'split' ? 'barrotes en dos tramos' : 'barrotes pasantes (agujeros en el refuerzo)'}${dv.horizontalRound ? ' · tramo completo igual que los laterales, con agujeros para MS/MI' : ''}`
             : 'No lleva: barrotes continuos de lateral a lateral'}</td></tr>
           <tr><th>Barrotes</th><td>{barLabel} · {design.distribution.count} barrotes · separación libre {fmtMm(Math.round(design.distribution.gapMm * 10) / 10)}</td></tr>
           <tr><th>Extremos de los barrotes</th><td>{dv.barsInLateral

@@ -327,7 +327,7 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
   const horizontalInset = horizontalRound ? frameWall + setback : pf + jg;
   const horizontalLength = horizontalRound ? W - 2 * horizontalInset : Wi - 2 * jg;
   const horizontalNote = horizontalRound
-    ? ` Tramo de caño redondo Ø${fmtMm(d)}; va alojado en los agujeros de los laterales, con el borde del agujero a ${fmtMm(horizontalEdge)} mm del extremo.`
+    ? ` Tramo de caño redondo Ø${fmtMm(d)}; va alojado en los agujeros de los laterales, con el borde del agujero a ${fmtMm(horizontalEdge)} mm del extremo.${hasReinf ? ` Atraviesa el refuerzo central por un agujero Ø${holeD} mm.` : ''}`
     : '';
   const lateralHoleCount = (inserted ? distribution.count : 0) + (horizontalRound ? 2 : 0);
   const lateralHoleDetails = [
@@ -373,6 +373,8 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
   }
 
   const through = hasReinf && config.bars.crossing === 'through';
+  /** Con MS/MI redondos, el refuerzo también va completo y los tramos lo atraviesan. */
+  const horizontalThroughReinf = hasReinf && horizontalRound;
   /** Dónde arranca el barrote contando desde el borde exterior (mm). */
   const endInset = inserted ? frameWall + setback : pf + jg;
   const fullLen = W - 2 * endInset;
@@ -382,18 +384,24 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
     : '';
 
   if (hasReinf) {
+    const rcLength = horizontalRound ? H : Hi - 2 * jg;
+    const rcNotes = horizontalRound
+      ? `Tramo completo, igual que los laterales. Largo = alto exterior ${fmtMm(H)}. Perforar 2 agujeros Ø${holeD} mm para MS/MI, con los ejes a ${fmtMm(railTop + d / 2)} de los extremos superior e inferior; los tramos pasan por los agujeros.` +
+        (through
+          ? ` Además, perforar ${distribution.count} agujeros Ø${holeD} mm (barrote Ø${d} + ${fmtMm(fab.throughHoleClearanceMm)} de holgura) con los ejes a las alturas indicadas en cada barrote.`
+          : '')
+      : `Va entre MS y MI.${jg ? ` Largo = alto interior ${fmtMm(Hi)} − 2×${fmtMm(jg)} de holgura.` : ` Largo = alto interior ${fmtMm(Hi)}.`}` +
+        (through
+          ? ` Perforar ${distribution.count} agujeros Ø${holeD} mm (barrote Ø${d} + ${fmtMm(fab.throughHoleClearanceMm)} mm de holgura) con los ejes a las alturas indicadas en cada barrote.`
+          : '');
     add(
       {
         id: 'RC', type: 'reinforcement', profileId: reinfP!.id, profileLabel: reinfLabel, sectionKey: reinfKey,
-        lengthMm: Hi - 2 * jg,
+        lengthMm: rcLength,
         location: `Refuerzo vertical central, eje a ${fmtMm(W / 2)} del borde izquierdo exterior`,
-        notes:
-          `Va entre MS y MI.${jg ? ` Largo = alto interior ${fmtMm(Hi)} − 2×${fmtMm(jg)} de holgura.` : ` Largo = alto interior ${fmtMm(Hi)}.`}` +
-          (through
-            ? ` Perforar ${distribution.count} agujeros Ø${holeD} mm (barrote Ø${d} + ${fab.throughHoleClearanceMm} mm de holgura) con los ejes a las alturas indicadas en cada barrote.`
-            : ''),
+        notes: rcNotes,
       },
-      { x: W / 2 - rw / 2, y: innerTop + jg, w: rw, h: Hi - 2 * jg },
+      { x: W / 2 - rw / 2, y: horizontalRound ? 0 : innerTop + jg, w: rw, h: rcLength },
     );
   }
 
@@ -471,7 +479,7 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
       message: `El caño redondo (Ø${d} mm) es más ancho que la cara de apoyo del refuerzo central (${fmtMm(reinfDepth)} hacia afuera).`,
     });
   }
-  if (through && reinfP && holeD > reinfDepth - 2 * reinfP.thicknessMm + EPS) {
+  if ((through || horizontalThroughReinf) && reinfP && holeD > reinfDepth - 2 * reinfP.thicknessMm + EPS) {
     issues.push({
       level: 'warning',
       code: 'hole-too-big',

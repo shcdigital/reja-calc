@@ -22,7 +22,7 @@ Todo corre en el navegador: sin backend, sin cuentas y sin servicios externos. L
 - Medidas exteriores en **mm o cm**.
 - **Separación libre** entre barrotes: cantidad automática (a partir de la separación máxima deseada y una mínima) o fija, con distribución simétrica y avisos cuando los límites son incompatibles.
 - **Armado del marco**: tramos horizontales completos con laterales entre ellos, o laterales completos.
-- **Tramos superior e inferior (MS/MI)**: con el **mismo perfil rectangular que los laterales** o de **caño redondo** (el mismo de los barrotes). Con caño redondo, los tramos se alojan en agujeros de los laterales (que van completos), con el borde del agujero a **0,5 cm** del extremo; el vano interior descuenta ese margen y el diámetro, y esas piezas se cortan y cuentan junto con los barrotes.
+- **Tramos superior e inferior (MS/MI)**: con el **mismo perfil rectangular que los laterales** o de **caño redondo** (el mismo de los barrotes). Con caño redondo, los tramos se alojan en agujeros de los laterales (que van completos), con el borde del agujero a **0,5 cm** del extremo; el vano interior descuenta ese margen y el diámetro, y esas piezas se cortan y cuentan junto con los barrotes. El refuerzo central también va completo como los laterales y los tramos pasan por sus agujeros.
 - **Refuerzo central opcional** (check): con el mismo perfil del marco o uno propio, y con dos formas de cruce:
   - **dos tramos** por barrote, que terminan contra el refuerzo, o
   - **pasante**: un barrote continuo que atraviesa el refuerzo por agujeros.
@@ -136,7 +136,7 @@ Todas las longitudes se manejan en milímetros y los largos de corte se redondea
 - **Vano interior:** `Wi = W − 2·pf`, `Hi = H − 2·pfH`, donde `pf` es lo que queda a la vista del perfil de los laterales y `pfH` el de los tramos superior e inferior (igual a `pf`, o el diámetro `d` si son de caño redondo; en ese caso se suma el margen de 5 mm del borde del agujero al extremo del lateral).
 - **Barrotes:** separación libre uniforme `g = (Hi − n·d) / (n + 1)`, con `n` automático (`n = max(1, ceil((Hi − g_máx) / (d + g_máx)))`) o fijo.
 - **Extremos:** `endInset = pf + jg` si van a tope; `endInset = pared + freno` si entran en el agujero del lateral, así que el largo del barrote es `W − 2·endInset` (continuo) o `(W/2 − rw/2 − jg) − endInset` (en dos tramos).
-- **Marco:** según el armado, los tramos completos miden `W` (u `H`) y los que van entre ellos descuentan el borde que los recibe (`pf` en los laterales, `pfH` en MS/MI) y la holgura por unión. Con MS/MI de caño redondo los laterales van siempre completos y MS/MI entran en sus agujeros: largo `W − 2·(pared + freno)`, con el borde del agujero a 5 mm del extremo del lateral.
+- **Marco:** según el armado, los tramos completos miden `W` (u `H`) y los que van entre ellos descuentan el borde que los recibe (`pf` en los laterales, `pfH` en MS/MI) y la holgura por unión. Con MS/MI de caño redondo los laterales y el refuerzo central van siempre completos y MS/MI entran en sus agujeros: largo `W − 2·(pared + freno)`, con el borde del agujero a 5 mm del extremo.
 - **Corte:** por cada caño, `Σ piezas + (n−1)·disco ≤ largo utilizable`, repartiendo disco, refilado y sobrante final de forma exacta.
 - **Presupuesto:** `total = materiales + consumibles + mano de obra`.
 

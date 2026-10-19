@@ -65,7 +65,8 @@ Agujeros de los laterales: Ø `d + holgura`, en la cara interior. Si los barrote
 
 Se activa o desactiva por reja con un check. Cuando está activo:
 
-- Centrado en `W/2`. Largo `Hi − 2·jg` (va entre MS y MI).
+- Centrado en `W/2`. Con MS/MI rectangulares, largo `Hi − 2·jg` (va entre MS y MI).
+- Con MS/MI de caño redondo, el refuerzo va **completo como los laterales** (largo `H`, desde el borde superior al inferior) y sobresale por encima/debajo de los tramos redondos. Lleva 2 agujeros Ø `d + holgura` para MS/MI, con los ejes a `margen + Øagujero/2` de cada extremo; los tramos pasan por esos agujeros. Si los barrotes son pasantes, lleva además un agujero por barrote.
 
 ## Barrotes y refuerzo central
 

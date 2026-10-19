@@ -406,7 +406,7 @@ export function App() {
                   ? `Laterales ${fmtMm(design.derived.frameInPlaneMm)} · MS/MI caño redondo Ø${fmtMm(design.derived.frameHorizontalMm)}, agujeros a ${fmtMm(design.derived.horizontalEdgeMm)} mm del borde`
                   : `${fmtMm(design.derived.frameInPlaneMm)} (${fmtMm(design.derived.frameDepthMm)} de profundidad)`}</dd></div>
                 {design.derived.withReinforcement
-                  ? <div><dt>Refuerzo central</dt><dd>{fmtMm(design.derived.reinfInPlaneMm)} a la vista · sector {fmtMm(design.derived.sectorWidthMm)}</dd></div>
+                  ? <div><dt>Refuerzo central</dt><dd>{fmtMm(design.derived.reinfInPlaneMm)} a la vista · sector {fmtMm(design.derived.sectorWidthMm)}{design.derived.horizontalRound ? ' · completo, igual que los laterales' : ''}</dd></div>
                   : <div><dt>Refuerzo central</dt><dd>No lleva</dd></div>}
                 <div><dt>Extremos de los barrotes</dt><dd>{design.derived.barsInLateral
                   ? `Entran ${fmtMm(design.derived.lateralPenetrationMm)} en cada lateral (agujero Ø${fmtMm(design.derived.lateralHoleMm)})`

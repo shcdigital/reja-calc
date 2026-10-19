@@ -159,7 +159,8 @@ describe('Armado del marco y refuerzo', () => {
           const throughReinf = crossing === 'through' && ((isBar(a) && b.type === 'reinforcement') || (isBar(b) && a.type === 'reinforcement'));
           const barIntoLateral = ends === 'inserted' && ((isBar(a) && lateral(b)) || (isBar(b) && lateral(a)));
           const horizontalIntoLateral = horizontals === 'round' && ((isHorizontal(a) && lateral(b)) || (isHorizontal(b) && lateral(a)));
-          if (!throughReinf && !barIntoLateral && !horizontalIntoLateral) expect(overlap, `${a.pieceId} × ${b.pieceId}`).toBe(false);
+          const horizontalThroughReinf = horizontals === 'round' && ((isHorizontal(a) && b.type === 'reinforcement') || (isHorizontal(b) && a.type === 'reinforcement'));
+          if (!throughReinf && !barIntoLateral && !horizontalIntoLateral && !horizontalThroughReinf) expect(overlap, `${a.pieceId} × ${b.pieceId}`).toBe(false);
         }
         // coincidencia layout ↔ piezas
         for (const p of d.pieces) {
@@ -228,11 +229,14 @@ describe('Marco con tramos superior e inferior (MS/MI) de caño redondo', () => 
     expect(lens(d, 'MI')).toEqual([1494]);
     expect(lens(d, 'LI')).toEqual([600]);
     expect(lens(d, 'LD')).toEqual([600]);
-    expect(lens(d, 'RC')).toEqual([525.5]);
+    // El refuerzo central va completo, igual que los laterales, y sobresale por encima/debajo de MS/MI.
+    expect(lens(d, 'RC')).toEqual([600]);
     const msBox = d.layout.find((r) => r.pieceId === 'MS')!;
     const miBox = d.layout.find((r) => r.pieceId === 'MI')!;
+    const rcBox = d.layout.find((r) => r.pieceId === 'RC')!;
     expect(msBox).toMatchObject({ x: 3, y: 5.5, w: 1494, h: 31.75 });
     expect(miBox).toMatchObject({ x: 3, y: 562.75, w: 1494, h: 31.75 });
+    expect(rcBox).toMatchObject({ x: 740, y: 0, w: 20, h: 600 });
   });
 
   it('los barrotes arrancan debajo del caño redondo y la separación sigue siendo uniforme', () => {
@@ -263,6 +267,25 @@ describe('Marco con tramos superior e inferior (MS/MI) de caño redondo', () => 
     expect(lens(full, 'LI')).toEqual([600]);
     expect(lens(full, 'MS')).toEqual([1494]);
     expect(full.layout.find((r) => r.pieceId === 'MS')).toMatchObject({ x: 3, y: 5.5 });
+  });
+
+  it('el refuerzo central va completo y los tramos pasan por sus agujeros', () => {
+    const rc = d.pieces.find((p) => p.id === 'RC')!;
+    expect(rc.lengthMm).toBe(600);
+    expect(rc.notes).toMatch(/Tramo completo, igual que los laterales/);
+    expect(rc.notes).toMatch(/Perforar 2 agujeros Ø32.75 mm para MS\/MI/);
+    expect(rc.notes).not.toMatch(/barrotes pasantes/);
+
+    const through = computeDesign(makeConfig({ horizontals: 'round', crossing: 'through' }), catalog);
+    const rcThrough = through.pieces.find((p) => p.id === 'RC')!;
+    expect(rcThrough.notes).toMatch(/Perforar 2 agujeros Ø32.75 mm para MS\/MI/);
+    expect(rcThrough.notes).toMatch(/Además, perforar 4 agujeros/);
+  });
+
+  it('avisa si el agujero de MS/MI no entra en la cara del refuerzo', () => {
+    const cfg = makeConfig({ horizontals: 'round' });
+    cfg.frame.orientation = 'major'; // refuerzo de 20 mm de profundidad, hueco 16 < Ø32,75
+    expect(computeDesign(cfg, catalog).issues.some((i) => i.code === 'hole-too-big')).toBe(true);
   });
 
   it('el margen del agujero al borde es configurable', () => {
