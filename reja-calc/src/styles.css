@@ -206,6 +206,15 @@ table.grid { border-collapse: collapse; width: 100%; font-size: .9rem; }
 .worksheet { color: #000; background: #fff; font-size: 10pt; width: 100%; max-width: 100%; overflow-wrap: break-word; }
 .worksheet h1 { font-size: 18pt; } .worksheet h2 { font-size: 13pt; margin-top: 1rem; border-bottom: 1px solid #000; }
 .worksheet h3 { font-size: 11pt; }
+/* Fondo 100 % blanco: la hoja de taller es la que se imprime y la que se
+   rasteriza para el PDF, así que no lleva fondos ni tramas grises. El color
+   queda solo en textos, planos y barras del plan de cortes. */
+.worksheet .grid th,
+.worksheet .ws-table.grid th { background: #fff; background-image: none; }
+.worksheet .grid tbody tr:nth-child(even) td,
+.worksheet .grid tbody tr:nth-child(even) th { background: transparent; }
+.worksheet .ws-preview,
+.worksheet .ws-preview svg { background: #fff; }
 .ws-dim { font-size: 13pt; }
 .ws-table { border-collapse: collapse; width: 100%; max-width: 100%; font-size: 9pt; }
 .ws-table th, .ws-table td { border: 1px solid #555; padding: 2pt 4pt; text-align: left; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
@@ -240,7 +249,15 @@ table.grid { border-collapse: collapse; width: 100%; font-size: .9rem; }
 .ws-page-break { break-before: page; page-break-before: always; }
 @media print {
   @page { size: A4; margin: 12mm; }
-  body { background: #fff; }
+  body { background: #fff !important; background-image: none !important; }
+  /* Fondo 100 % blanco en todo lo impreso: los grises de pantalla (tarjetas,
+     avisos, tablas) no van al papel. El color se conserva en textos y gráficos. */
+  .card, .hint, .result-box, .issue, .inv li, .reja-item, .field-input,
+  .bin, .table-wrap, .grid th, .grid tbody tr:nth-child(even) td {
+    background: #fff !important;
+    background-image: none !important;
+  }
+  .card::before, .card::after { display: none !important; }
   .no-print { display: none !important; }
   body[data-printing] [data-area] { display: none !important; }
   body[data-printing="materials"] [data-area="materials"],

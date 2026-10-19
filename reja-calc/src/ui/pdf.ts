@@ -36,7 +36,8 @@ function drawPlano(
   const sh = rejaH * scale;
   ensure(sh + 6);
   const x0 = margin + (width - sw) / 2;
-  doc.setFillColor(245, 246, 247);
+  // El plano arranca sobre fondo blanco: sin gris de fondo detrás del dibujo.
+  doc.setFillColor(255, 255, 255);
   doc.setDrawColor(150);
   doc.rect(x0, y, sw, sh, 'FD');
   for (const rc of layout) {
@@ -250,6 +251,8 @@ export async function buildWorksheetPdfBlob(source: HTMLElement): Promise<Blob> 
     for (const page of pages) {
       // Los puntos de corte se miden antes de renderizar, sobre la hoja tal cual sale.
       const breaksCss = safeBreaks(page);
+      // Fondo 100 % blanco: la hoja no pinta fondos (los grises de pantalla se
+      // neutralizan en styles.css) y html2canvas rellena el resto en blanco.
       const canvas = await html2canvas(page, {
         scale,
         backgroundColor: '#ffffff',
