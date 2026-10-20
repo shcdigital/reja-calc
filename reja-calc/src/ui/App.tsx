@@ -244,13 +244,13 @@ export function App() {
             <label className="field">
               <span className="field-label">Caño redondo de los barrotes</span>
               <select value={config.roundProfileId} onChange={(e) => setConfig((c) => { c.roundProfileId = e.target.value; })}>
-                {catalog.round.map((p) => <option key={p.id} value={p.id}>{p.label} (Ø{p.odMm} × {p.thicknessMm})</option>)}
+                {catalog.round.filter((p) => config.style === 'clasica' ? !!p.solid : !p.solid).map((p) => <option key={p.id} value={p.id}>{p.label} (Ø{p.odMm} × {p.thicknessMm})</option>)}
               </select>
             </label>
             <label className="field">
               <span className="field-label">Perfil rectangular del marco (laterales)</span>
               <select value={config.frame.profileId} onChange={(e) => setConfig((c) => { c.frame.profileId = e.target.value; })}>
-                {catalog.rect.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                {catalog.rect.filter((p) => config.style === 'clasica' ? !!p.solid : !p.solid).map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
             </label>
             <OrientationSelect label="Orientación del perfil del marco" profile={frameP} value={config.frame.orientation} onChange={(o) => setConfig((c) => { c.frame.orientation = o; })} />
@@ -287,7 +287,7 @@ export function App() {
                     <label className="field">
                       <span className="field-label">Perfil del refuerzo central</span>
                       <select value={config.reinforcement.profileId} onChange={(e) => setConfig((c) => { c.reinforcement.profileId = e.target.value; })}>
-                        {catalog.rect.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        {catalog.rect.filter((p) => config.style === 'clasica' ? !!p.solid : !p.solid).map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                       </select>
                     </label>
                     <OrientationSelect label="Orientación del refuerzo" profile={reinfP} value={config.reinforcement.orientation} onChange={(o) => setConfig((c) => { c.reinforcement.orientation = o; })} />

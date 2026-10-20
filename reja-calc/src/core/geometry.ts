@@ -561,18 +561,71 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
     };
   }
   if (config.style === 'clasica') {
-    const cfg: ProjectConfig = structuredClone(config);
-    cfg.bars = { ...cfg.bars, ends: 'inserted' };
-    cfg.frame = { ...cfg.frame, horizontalProfile: 'same-as-sides' };
-    return computeWindowModerna(cfg, catalog);
+    return computeWindowClasica(config, catalog);
   }
   return computeWindowModerna(config, catalog);
 }
 
-/** Geometría del estilo clásico: se resuelve reutilizando la de barrotes alojados. */
+// ───────────────────────── Estilo clásico (barras verticales) ─────────────────────────
+
+const CLASSIC_TYPE_MAP: Record<PieceType, PieceType> = {
+  'frame-top': 'frame-left',
+  'frame-bottom': 'frame-right',
+  'frame-left': 'frame-top',
+  'frame-right': 'frame-bottom',
+  reinforcement: 'reinforcement',
+  bar: 'bar',
+};
+
+function classicMapId(id: string): string {
+  if (id === 'MS') return 'LI';
+  if (id === 'MI') return 'LD';
+  if (id === 'LI') return 'MS';
+  if (id === 'LD') return 'MI';
+  return id;
+}
+
 export function computeWindowClasica(config: ProjectConfig, catalog: Catalog): Design {
   const cfg: ProjectConfig = structuredClone(config);
+  cfg.style = config.style;
   cfg.bars = { ...cfg.bars, ends: 'inserted' };
   cfg.frame = { ...cfg.frame, horizontalProfile: 'same-as-sides' };
-  return computeWindowModerna(cfg, catalog);
+  // Transponemos ancho/alto: la geometría moderna trabaja con barras horizontales;
+  // en la clásica las barras son verticales.
+  const origW = cfg.window.widthMm;
+  const origH = cfg.window.heightMm;
+  cfg.window.widthMm = origH;
+  cfg.window.heightMm = origW;
+
+  const designT = computeWindowModerna(cfg, catalog);
+  if (!designT.derived) return designT;
+
+  const derived = {
+    ...designT.derived,
+    innerWidthMm: designT.derived.innerHeightMm,
+    innerHeightMm: designT.derived.innerWidthMm,
+  };
+
+  const pieces = designT.pieces.map((p) => ({
+    ...p,
+    id: classicMapId(p.id),
+    type: CLASSIC_TYPE_MAP[p.type],
+  }));
+
+  const layout = designT.layout.map((r) => ({
+    ...r,
+    type: CLASSIC_TYPE_MAP[r.type],
+    x: r.y,
+    y: r.x,
+    w: r.h,
+    h: r.w,
+  }));
+
+  return {
+    issues: designT.issues,
+    derived,
+    distribution: designT.distribution,
+    pieces,
+    layout,
+  };
 }
