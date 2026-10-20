@@ -12,19 +12,31 @@ export const DEFAULT_CATALOG: Catalog = {
   round: [
     { id: 'r-1', kind: 'round', label: 'Caño redondo 1"', odMm: 25.4, thicknessMm: 2 },
     { id: 'r-1q', kind: 'round', label: 'Caño redondo 1¼"', odMm: 31.75, thicknessMm: 2 },
+    { id: 'rm-11', kind: 'round', label: 'Hierro macizo redondo 7/16"', odMm: 11.1, thicknessMm: 5.55, solid: true },
     { id: 'rm-12', kind: 'round', label: 'Hierro macizo redondo 1/2"', odMm: 12.7, thicknessMm: 6.35, solid: true },
     { id: 'rm-14', kind: 'round', label: 'Hierro macizo redondo 9/16"', odMm: 14.3, thicknessMm: 7.15, solid: true },
     { id: 'rm-16', kind: 'round', label: 'Hierro macizo redondo 5/8"', odMm: 15.9, thicknessMm: 7.95, solid: true },
     { id: 'rm-19', kind: 'round', label: 'Hierro macizo redondo 3/4"', odMm: 19.1, thicknessMm: 9.55, solid: true },
+    { id: 'rm-22', kind: 'round', label: 'Hierro macizo redondo 7/8"', odMm: 22.2, thicknessMm: 11.1, solid: true },
+    { id: 'rm-25', kind: 'round', label: 'Hierro macizo redondo 1"', odMm: 25.4, thicknessMm: 12.7, solid: true },
+    { id: 'qm-11', kind: 'round', label: 'Hierro macizo cuadrado 7/16"', odMm: 11.1, thicknessMm: 5.55, solid: true, square: true },
+    { id: 'qm-12', kind: 'round', label: 'Hierro macizo cuadrado 1/2"', odMm: 12.7, thicknessMm: 6.35, solid: true, square: true },
+    { id: 'qm-14', kind: 'round', label: 'Hierro macizo cuadrado 9/16"', odMm: 14.3, thicknessMm: 7.15, solid: true, square: true },
+    { id: 'qm-16', kind: 'round', label: 'Hierro macizo cuadrado 5/8"', odMm: 15.9, thicknessMm: 7.95, solid: true, square: true },
+    { id: 'qm-19', kind: 'round', label: 'Hierro macizo cuadrado 3/4"', odMm: 19.1, thicknessMm: 9.55, solid: true, square: true },
+    { id: 'qm-22', kind: 'round', label: 'Hierro macizo cuadrado 7/8"', odMm: 22.2, thicknessMm: 11.1, solid: true, square: true },
+    { id: 'qm-25', kind: 'round', label: 'Hierro macizo cuadrado 1"', odMm: 25.4, thicknessMm: 12.7, solid: true, square: true },
   ],
   rect: [
     { id: 'c-30x20', kind: 'rect', label: 'Rectangular 30 × 20 × 2', aMm: 30, bMm: 20, thicknessMm: 2 },
     { id: 'c-40x20', kind: 'rect', label: 'Rectangular 40 × 20 × 2', aMm: 40, bMm: 20, thicknessMm: 2 },
     { id: 'c-40x30', kind: 'rect', label: 'Rectangular 40 × 30 × 2', aMm: 40, bMm: 30, thicknessMm: 2 },
+    { id: 'pl-25x3', kind: 'rect', label: 'Planchuela 1" × 1/8"', aMm: 25.4, bMm: 3.175, thicknessMm: 3.175, solid: true },
     { id: 'pl-25x5', kind: 'rect', label: 'Planchuela 1" × 3/16"', aMm: 25.4, bMm: 4.76, thicknessMm: 4.76, solid: true },
     { id: 'pl-32x5', kind: 'rect', label: 'Planchuela 1 1/4" × 3/16"', aMm: 31.75, bMm: 4.76, thicknessMm: 4.76, solid: true },
     { id: 'pl-32x6', kind: 'rect', label: 'Planchuela 1 1/4" × 1/4"', aMm: 31.75, bMm: 6.35, thicknessMm: 6.35, solid: true },
     { id: 'pl-38x6', kind: 'rect', label: 'Planchuela 1 1/2" × 1/4"', aMm: 38.1, bMm: 6.35, thicknessMm: 6.35, solid: true },
+    { id: 'pl-50x6', kind: 'rect', label: 'Planchuela 2" × 1/4"', aMm: 50.8, bMm: 6.35, thicknessMm: 6.35, solid: true },
   ],
 };
 
@@ -75,6 +87,7 @@ export function sectionKey(p: Profile): string {
 
 export function profileLabel(p: Profile): string {
   if (p.kind === 'round') {
+    if (p.solid && p.square) return `Hierro macizo cuadrado ${fmt(p.odMm)} × ${fmt(p.odMm)} mm`;
     if (p.solid) return `Hierro macizo redondo Ø${fmt(p.odMm)} mm`;
     return `Caño redondo Ø${fmt(p.odMm)} × ${fmt(p.thicknessMm)} mm`;
   }

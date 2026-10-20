@@ -40,7 +40,7 @@ Para una reja de tipo `ventana` con estilo `clasica`, el sistema SHALL calcular 
 
 ### Requirement: Catálogo estándar argentino para el estilo clásico
 
-El catálogo por defecto SHALL incluir planchuelas perforadas estándar (1" × 3/16", 1 1/4" × 3/16", 1 1/4" × 1/4" y 1 1/2" × 1/4") y barrotes de hierro macizo redondos estándar (1/2" = 12,7 mm, 9/16" = 14,3 mm, 5/8" = 15,9 mm y 3/4" = 19,1 mm), con etiquetas comerciales en español. El usuario SHALL poder editar o agregar perfiles como en el estilo moderno.
+El catálogo por defecto SHALL incluir planchuelas perforadas estándar (1" × 1/8", 1" × 3/16", 1 1/4" × 3/16", 1 1/4" × 1/4", 1 1/2" × 1/4" y 2" × 1/4") y barrotes de hierro macizo redondos y cuadrados estándar (7/16" = 11,1 mm, 1/2" = 12,7 mm, 9/16" = 14,3 mm, 5/8" = 15,9 mm, 3/4" = 19,1 mm, 7/8" = 22,2 mm y 1" = 25,4 mm), con etiquetas comerciales en español. El estilo clásico SHALL seleccionar por defecto el hierro macizo cuadrado. El usuario SHALL poder editar o agregar perfiles como en el estilo moderno.
 
 #### Scenario: Catálogo incluye planchuelas estándar
 

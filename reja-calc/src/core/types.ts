@@ -9,11 +9,13 @@ export interface RoundProfile {
   id: string;
   kind: 'round';
   label: string;
-  /** Diámetro exterior (mm). Configurable: el real comercial puede variar. */
+  /** Diámetro exterior (mm) o lado (mm) si es cuadrado. Configurable: el real comercial puede variar. */
   odMm: number;
   thicknessMm: number;
   /** true si el perfil es macizo (hierro macizo): no es un caño hueco. */
   solid?: boolean;
+  /** true si el perfil macizo es cuadrado (lado = odMm). */
+  square?: boolean;
 }
 
 export interface RectProfile {

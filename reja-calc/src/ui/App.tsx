@@ -229,8 +229,10 @@ export function App() {
                 if (c.style === 'clasica') {
                   const firstSolidRect = catalog.rect.find((p) => p.solid && isValidRect(p));
                   if (firstSolidRect && !catalog.rect.find((p) => p.id === c.frame.profileId && p.solid)) c.frame.profileId = firstSolidRect.id;
+                  const firstSolidSquare = catalog.round.find((p) => p.solid && p.square && isValidRound(p));
                   const firstSolidRound = catalog.round.find((p) => p.solid && isValidRound(p));
-                  if (firstSolidRound && !catalog.round.find((p) => p.id === c.roundProfileId && p.solid)) c.roundProfileId = firstSolidRound.id;
+                  if (firstSolidSquare && !catalog.round.find((p) => p.id === c.roundProfileId && p.solid && p.square)) c.roundProfileId = firstSolidSquare.id;
+                  else if (firstSolidRound && !catalog.round.find((p) => p.id === c.roundProfileId && p.solid)) c.roundProfileId = firstSolidRound.id;
                   c.frame.horizontalProfile = 'same-as-sides';
                 }
               })}>
