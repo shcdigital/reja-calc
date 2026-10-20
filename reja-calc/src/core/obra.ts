@@ -214,6 +214,10 @@ function normalizeConfig(saved: unknown): ProjectConfig {
   const config = deepFill(DEFAULT_CONFIG, saved) as ProjectConfig;
   // Los MS/MI redondos se alojan en los laterales, que deben ser completos.
   if (config.frame.horizontalProfile === 'round') config.frame.assembly = 'vertical-full';
+  // Estilo y tipo de producto: valores por defecto para configs guardadas por versiones anteriores.
+  if (config.style !== 'moderna' && config.style !== 'clasica') config.style = 'moderna';
+  const validProducts: ProjectConfig['productKind'][] = ['ventana', 'puerta-abrir', 'puerta-corrediza', 'porton-dos-hojas', 'porton-corredizo', 'frente'];
+  if (!validProducts.includes(config.productKind)) config.productKind = 'ventana';
   return config;
 }
 

@@ -3,6 +3,7 @@ import { computeDesign, distributeBars, groupPieces } from './geometry';
 import { packSection } from './cutting';
 import { computeProject } from './project';
 import { catalog, makeConfig } from './helpers';
+import type { ProjectConfig } from './types';
 import { sectionKey, findRound, findRect } from './profiles';
 import { applyPlanToInventory } from './inventory';
 import { cutListCsv } from './exporters';
@@ -558,5 +559,35 @@ describe('Exportación', () => {
     const csv = cutListCsv(r.design.pieces, r.plan!);
     expect(csv.split('\r\n')).toHaveLength(r.design.pieces.length + 1);
     expect(csv).toContain('720');
+  });
+});
+
+describe('Estilo clásico (ventana)', () => {
+  function classicCfg(): ProjectConfig {
+    const c = makeConfig({ round: 'rm-12', frame: 'pl-25x5' });
+    c.style = 'clasica';
+    c.productKind = 'ventana';
+    c.frame.orientation = 'major';
+    c.bars.ends = 'inserted';
+    return c;
+  }
+  const d = computeDesign(classicCfg(), catalog);
+  it('no tiene errores y no emite bar-wider-than-frame', () => {
+    expect(d.issues.filter((i) => i.level === 'error')).toEqual([]);
+    expect(d.issues.some((i) => i.code === 'bar-wider-than-frame')).toBe(false);
+  });
+  it('despiece con planchuela y hierro macizo', () => {
+    const planch = d.pieces.filter((p) => p.profileLabel.startsWith('Planchuela'));
+    const macizo = d.pieces.filter((p) => p.profileLabel.startsWith('Hierro macizo'));
+    expect(planch.length).toBeGreaterThan(0);
+    expect(macizo.length).toBeGreaterThan(0);
+    expect(d.pieces.some((p) => p.type === 'bar')).toBe(true);
+  });
+  it('producto no implementado no genera piezas', () => {
+    const c = classicCfg();
+    c.productKind = 'puerta-abrir';
+    const dd = computeDesign(c, catalog);
+    expect(dd.pieces).toEqual([]);
+    expect(dd.issues.some((i) => i.code === 'product-not-implemented')).toBe(true);
   });
 });

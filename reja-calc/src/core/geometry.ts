@@ -157,7 +157,7 @@ export function distributeBars(params: {
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
+export function computeWindowModerna(config: ProjectConfig, catalog: Catalog): Design {
   const issues: Issue[] = [];
   const fail = (code: string, message: string) => issues.push({ level: 'error', code, message });
   const empty = (): Design => ({ issues, derived: null, distribution: null, pieces: [], layout: [] });
@@ -465,7 +465,7 @@ export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
   }
 
   // 6) Advertencias de compatibilidad
-  if (d > frameDepth + EPS) {
+  if (config.style !== 'clasica' && d > frameDepth + EPS) {
     issues.push({
       level: 'warning',
       code: 'bar-wider-than-frame',
@@ -536,3 +536,43 @@ export const PIECE_TYPE_LABEL: Record<PieceType, string> = {
   reinforcement: 'Refuerzo central',
   bar: 'Barrote',
 };
+
+// ───────────────────────── Despachador por producto y estilo ─────────────────────────
+
+/**
+ * Punto único de resolución de la geometría según `(productKind, style)`.
+ * Agregar un nuevo producto solo requiere un nuevo caso aquí y su función propia;
+ * el resto del pipeline (corte, materiales, presupuesto) consume las piezas generadas.
+ */
+export function computeDesign(config: ProjectConfig, catalog: Catalog): Design {
+  if (config.productKind !== 'ventana') {
+    return {
+      issues: [
+        {
+          level: 'error',
+          code: 'product-not-implemented',
+          message: `El tipo de producto «${config.productKind}» aún no está implementado. Por ahora solo están disponibles las rejas para ventana.`,
+        },
+      ],
+      derived: null,
+      distribution: null,
+      pieces: [],
+      layout: [],
+    };
+  }
+  if (config.style === 'clasica') {
+    const cfg: ProjectConfig = structuredClone(config);
+    cfg.bars = { ...cfg.bars, ends: 'inserted' };
+    cfg.frame = { ...cfg.frame, horizontalProfile: 'same-as-sides' };
+    return computeWindowModerna(cfg, catalog);
+  }
+  return computeWindowModerna(config, catalog);
+}
+
+/** Geometría del estilo clásico: se resuelve reutilizando la de barrotes alojados. */
+export function computeWindowClasica(config: ProjectConfig, catalog: Catalog): Design {
+  const cfg: ProjectConfig = structuredClone(config);
+  cfg.bars = { ...cfg.bars, ends: 'inserted' };
+  cfg.frame = { ...cfg.frame, horizontalProfile: 'same-as-sides' };
+  return computeWindowModerna(cfg, catalog);
+}

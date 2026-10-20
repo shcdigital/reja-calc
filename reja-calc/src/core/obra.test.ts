@@ -10,6 +10,7 @@ import {
   createObra,
   duplicateReja,
   loadObra,
+  saveObra,
   migrateLegacyObra,
   parseObra,
   removeReja,
@@ -244,5 +245,35 @@ describe('Obra: plan unificado', () => {
     expect(next.some((o) => o.id === 'o1')).toBe(false); // el sobrante usado salió del inventario
     expect(next.length).toBeGreaterThanOrEqual(1); // se registraron sobrantes reutilizables
     expect(next.every((o) => o.origin.startsWith('Obra'))).toBe(true);
+  });
+});
+
+describe('Persistencia: estilo clásico round-trip', () => {
+  it('guarda y restaura una reja clásica', () => {
+    const store = memStore();
+    const obra = createObra();
+    const cfg = makeConfig({ round: 'rm-12', frame: 'pl-25x5' });
+    cfg.style = 'clasica';
+    cfg.productKind = 'ventana';
+    cfg.frame.orientation = 'major';
+    obra.rejas[0].config = cfg;
+    saveObra(store, obra);
+    const loaded = loadObra(store);
+    expect(loaded.rejas[0].config.style).toBe('clasica');
+    expect(loaded.rejas[0].config.roundProfileId).toBe('rm-12');
+    expect(loaded.rejas[0].config.frame.profileId).toBe('pl-25x5');
+  });
+});
+
+describe('Migración: config antigua sin style/productKind', () => {
+  it('normaliza a moderna/ventana', () => {
+    const legacy = { ...DEFAULT_CONFIG } as Record<string, unknown>;
+    delete (legacy as any).style;
+    delete (legacy as any).productKind;
+    const store = memStore({ [LEGACY_CONFIG_KEY]: JSON.stringify(legacy) });
+    const obra = migrateLegacyObra(store);
+    expect(obra).not.toBeNull();
+    expect(obra!.rejas[0].config.style).toBe('moderna');
+    expect(obra!.rejas[0].config.productKind).toBe('ventana');
   });
 });

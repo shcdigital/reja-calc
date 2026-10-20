@@ -223,6 +223,25 @@ export function App() {
           <section className="card">
             <h2>2. Perfiles</h2>
             <label className="field">
+              <span className="field-label">Estilo de reja</span>
+              <select value={config.style} onChange={(e) => setConfig((c) => {
+                c.style = e.target.value as ProjectConfig['style'];
+                if (c.style === 'clasica') {
+                  const firstSolidRect = catalog.rect.find((p) => p.solid && isValidRect(p));
+                  if (firstSolidRect && !catalog.rect.find((p) => p.id === c.frame.profileId && p.solid)) c.frame.profileId = firstSolidRect.id;
+                  const firstSolidRound = catalog.round.find((p) => p.solid && isValidRound(p));
+                  if (firstSolidRound && !catalog.round.find((p) => p.id === c.roundProfileId && p.solid)) c.roundProfileId = firstSolidRound.id;
+                  c.frame.horizontalProfile = 'same-as-sides';
+                }
+              })}>
+                <option value="moderna">Moderna (caño estructural)</option>
+                <option value="clasica">Clásica (planchuela y hierro macizo)</option>
+              </select>
+            </label>
+            <p className="muted small">{config.style === 'clasica'
+              ? 'Reja clásica: marco de planchuela con agujeros y barrotes de hierro macizo insertados en los laterales.'
+              : 'Reja moderna: marco de caño estructural y barrotes de caño redondo.'}</p>
+            <label className="field">
               <span className="field-label">Caño redondo de los barrotes</span>
               <select value={config.roundProfileId} onChange={(e) => setConfig((c) => { c.roundProfileId = e.target.value; })}>
                 {catalog.round.map((p) => <option key={p.id} value={p.id}>{p.label} (Ø{p.odMm} × {p.thicknessMm})</option>)}
@@ -401,6 +420,7 @@ export function App() {
             {errors.length === 0 && <Preview design={design} width={W} height={H} />}
             {errors.length === 0 && design.derived && (
               <dl className="facts">
+                <div><dt>Estilo</dt><dd>{config.style === 'clasica' ? 'Clásica (planchuela y hierro macizo)' : 'Moderna (caño estructural)'}</dd></div>
                 <div><dt>Vano interior</dt><dd>{fmtMm(design.derived.innerWidthMm)} × {fmtMm(design.derived.innerHeightMm)}</dd></div>
                 <div><dt>Marco a la vista</dt><dd>{design.derived.horizontalRound
                   ? `Laterales ${fmtMm(design.derived.frameInPlaneMm)} · MS/MI caño redondo Ø${fmtMm(design.derived.frameHorizontalMm)}, agujeros a ${fmtMm(design.derived.horizontalEdgeMm)} mm del borde`

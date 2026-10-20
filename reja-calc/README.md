@@ -30,6 +30,7 @@ Todo corre en el navegador: sin backend, sin cuentas y sin servicios externos. L
   - **a tope** contra la cara interior del lateral, o
   - **alojados**: el barrote entra por un **agujero en la cara interior** del lateral, lo atraviesa y se frena 1 mm antes de la cara exterior (`freno` configurable). Queda **centrado por el agujero**, soldado y **liso por fuera**.
 - **Perfiles editables**: diámetros, lados y espesores reales del proveedor, y recomendación del perfil de marco según el caño redondo elegido.
+- **Estilos de reja**: `moderna` (caño estructural) o `clasica` (planchuela con agujeros y hierro macizo), con medidas estándar argentinas en el catálogo por defecto. El tipo de producto `ventana` está implementado; puertas, portones y frentes quedan reservados para extensiones futuras.
 - **Vista previa en plano** (SVG) de la reja activa, con cotas reales.
 
 ### Corte y materiales

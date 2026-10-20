@@ -12,6 +12,8 @@ export interface RoundProfile {
   /** Diámetro exterior (mm). Configurable: el real comercial puede variar. */
   odMm: number;
   thicknessMm: number;
+  /** true si el perfil es macizo (hierro macizo): no es un caño hueco. */
+  solid?: boolean;
 }
 
 export interface RectProfile {
@@ -22,6 +24,8 @@ export interface RectProfile {
   aMm: number;
   bMm: number;
   thicknessMm: number;
+  /** true si el perfil es macizo (planchuela): no es un caño hueco. */
+  solid?: boolean;
 }
 
 export type Profile = RoundProfile | RectProfile;
@@ -37,6 +41,20 @@ export interface Catalog {
  * - 'major': el lado mayor queda en el plano; el lado menor es la profundidad.
  */
 export type Orientation = 'minor' | 'major';
+
+// ───────────────────────── Estilo y producto ─────────────────────────
+
+/** Estilo constructivo de la reja. */
+export type RejaStyle = 'moderna' | 'clasica';
+
+/** Tipo de producto al que se aplica la reja. Solo `ventana` está implementado por ahora. */
+export type ProductKind =
+  | 'ventana'
+  | 'puerta-abrir'
+  | 'puerta-corrediza'
+  | 'porton-dos-hojas'
+  | 'porton-corredizo'
+  | 'frente';
 
 // ───────────────────────── Configuración ─────────────────────────
 
@@ -73,6 +91,8 @@ export type BarEnds =
   | 'inserted';
 
 export interface ProjectConfig {
+  style: RejaStyle;
+  productKind: ProductKind;
   window: { widthMm: number; heightMm: number };
   roundProfileId: string;
   frame: {

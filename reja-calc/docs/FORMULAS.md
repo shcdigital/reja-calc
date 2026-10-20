@@ -141,3 +141,9 @@ El total **no** incluye margen de ganancia ni impuestos. Si falta el precio de u
 
 Largo comercial, disco, holgura por unión, refilado de punta, perfil de los tramos superior e inferior (mismo rectangular del marco o caño redondo de los barrotes), extremos de los barrotes (a tope o alojados en un agujero del lateral), freno de la punta, margen del agujero de MS/MI al borde del lateral, holgura de agujero, medidas reales de cada perfil, largo mínimo de sobrante reutilizable, precios por caño, consumibles y valor hora de mano de obra.
 Sin cortes a inglete: todas las uniones del marco son a tope a 90°.
+
+## Estilos de reja
+
+- **Moderna** (por defecto): marco de caño estructural (redondo o rectangular) y barrotes de caño redondo. Comportamiento descrito en las secciones anteriores.
+- **Clásica**: marco de planchuela con agujeros y barrotes de hierro macizo insertados en los laterales. Reutiliza la geometría de barrotes alojados (`ends = inserted`) con un perfil de planchuela como marco; los MS/MI usan la misma planchuela. Los barrotes son macizos redondos de medidas estándar argentinas (1/2" = 12,7 mm, 9/16" = 14,3 mm, 5/8" = 15,9 mm, 3/4" = 19,1 mm). La advertencia `bar-wider-than-frame` no aplica, porque los barrotes atraviesan la planchuela por diseño.
+- **Tipos de producto**: por ahora solo `ventana`. Los valores `puerta-abrir`, `puerta-corrediza`, `porton-dos-hojas`, `porton-corredizo` y `frente` están reservados en el dominio; su geometría no está implementada y produce el error `product-not-implemented`.

@@ -12,15 +12,25 @@ export const DEFAULT_CATALOG: Catalog = {
   round: [
     { id: 'r-1', kind: 'round', label: 'Caño redondo 1"', odMm: 25.4, thicknessMm: 2 },
     { id: 'r-1q', kind: 'round', label: 'Caño redondo 1¼"', odMm: 31.75, thicknessMm: 2 },
+    { id: 'rm-12', kind: 'round', label: 'Hierro macizo redondo 1/2"', odMm: 12.7, thicknessMm: 6.35, solid: true },
+    { id: 'rm-14', kind: 'round', label: 'Hierro macizo redondo 9/16"', odMm: 14.3, thicknessMm: 7.15, solid: true },
+    { id: 'rm-16', kind: 'round', label: 'Hierro macizo redondo 5/8"', odMm: 15.9, thicknessMm: 7.95, solid: true },
+    { id: 'rm-19', kind: 'round', label: 'Hierro macizo redondo 3/4"', odMm: 19.1, thicknessMm: 9.55, solid: true },
   ],
   rect: [
     { id: 'c-30x20', kind: 'rect', label: 'Rectangular 30 × 20 × 2', aMm: 30, bMm: 20, thicknessMm: 2 },
     { id: 'c-40x20', kind: 'rect', label: 'Rectangular 40 × 20 × 2', aMm: 40, bMm: 20, thicknessMm: 2 },
     { id: 'c-40x30', kind: 'rect', label: 'Rectangular 40 × 30 × 2', aMm: 40, bMm: 30, thicknessMm: 2 },
+    { id: 'pl-25x5', kind: 'rect', label: 'Planchuela 1" × 3/16"', aMm: 25.4, bMm: 4.76, thicknessMm: 4.76, solid: true },
+    { id: 'pl-32x5', kind: 'rect', label: 'Planchuela 1 1/4" × 3/16"', aMm: 31.75, bMm: 4.76, thicknessMm: 4.76, solid: true },
+    { id: 'pl-32x6', kind: 'rect', label: 'Planchuela 1 1/4" × 1/4"', aMm: 31.75, bMm: 6.35, thicknessMm: 6.35, solid: true },
+    { id: 'pl-38x6', kind: 'rect', label: 'Planchuela 1 1/2" × 1/4"', aMm: 38.1, bMm: 6.35, thicknessMm: 6.35, solid: true },
   ],
 };
 
 export const DEFAULT_CONFIG: ProjectConfig = {
+  style: 'moderna',
+  productKind: 'ventana',
   window: { widthMm: 1500, heightMm: 600 },
   roundProfileId: 'r-1q',
   frame: { profileId: 'c-40x20', orientation: 'minor', assembly: 'horizontal-full', horizontalProfile: 'same-as-sides' },
@@ -64,9 +74,13 @@ export function sectionKey(p: Profile): string {
 }
 
 export function profileLabel(p: Profile): string {
-  if (p.kind === 'round') return `Caño redondo Ø${fmt(p.odMm)} × ${fmt(p.thicknessMm)} mm`;
+  if (p.kind === 'round') {
+    if (p.solid) return `Hierro macizo redondo Ø${fmt(p.odMm)} mm`;
+    return `Caño redondo Ø${fmt(p.odMm)} × ${fmt(p.thicknessMm)} mm`;
+  }
   const hi = Math.max(p.aMm, p.bMm);
   const lo = Math.min(p.aMm, p.bMm);
+  if (p.solid) return `Planchuela ${fmt(hi)} × ${fmt(lo)} mm`;
   return `Caño rectangular ${fmt(hi)} × ${fmt(lo)} × ${fmt(p.thicknessMm)} mm`;
 }
 
@@ -87,17 +101,15 @@ export function depthDim(p: RectProfile, o: Orientation): number {
 }
 
 export function isValidRound(p: RoundProfile | undefined): p is RoundProfile {
-  return !!p && p.odMm > 0 && p.thicknessMm > 0 && p.thicknessMm * 2 < p.odMm;
+  if (!p || p.odMm <= 0 || p.thicknessMm <= 0) return false;
+  if (p.solid) return p.thicknessMm <= p.odMm / 2;
+  return p.thicknessMm * 2 < p.odMm;
 }
 
 export function isValidRect(p: RectProfile | undefined): p is RectProfile {
-  return (
-    !!p &&
-    p.aMm > 0 &&
-    p.bMm > 0 &&
-    p.thicknessMm > 0 &&
-    p.thicknessMm * 2 < Math.min(p.aMm, p.bMm)
-  );
+  if (!p || p.aMm <= 0 || p.bMm <= 0 || p.thicknessMm <= 0) return false;
+  if (p.solid) return p.thicknessMm <= Math.min(p.aMm, p.bMm);
+  return p.thicknessMm * 2 < Math.min(p.aMm, p.bMm);
 }
 
 /**
