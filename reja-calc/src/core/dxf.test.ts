@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildDesignDxf, buildObraDxf, buildRejasDxf } from './dxf';
+import { buildDesignDxf, buildObraDxf, buildRejasDxf, parseDxfPayload, readDxfGeometry } from './dxf';
 import { computeDesign } from './geometry';
 import { catalog, makeConfig } from './helpers';
 import { computeObra, createObra } from './obra';
 
 const lineCount = (dxf: string) => (dxf.match(/\r\nLINE\r\n/g) ?? []).length;
 
-describe('Exportación DXF', () => {
+describe('DXF: exportación e importación', () => {
   it('genera un DXF R12 en milímetros con capas separadas', () => {
     const cfg = makeConfig();
     const design = computeDesign(cfg, catalog);
@@ -51,11 +51,67 @@ describe('Exportación DXF', () => {
     }));
     const obra = { ...base, rejas, activeRejaId: 'R1' };
     const result = computeObra(obra, catalog);
-    const dxf = buildObraDxf(result);
+    const dxf = buildObraDxf(obra, result);
 
     expect(dxf).toContain('Reja 1 - 1.500 x 600 mm');
     expect(dxf).toContain('Reja 2 - 1.500 x 600 mm');
     expect(dxf).toContain('$EXTMAX\r\n10\r\n3390');
+  });
+
+  it('embebe la obra completa para poder reimportar el DXF', () => {
+    const base = createObra();
+    const obra = {
+      ...base,
+      name: 'Obra de prueba',
+      rejas: [{
+        ...base.rejas[0],
+        name: 'Reja importable',
+        config: makeConfig({ bar: 'r-1' }),
+      }],
+      activeRejaId: base.rejas[0].id,
+    };
+    const result = computeObra(obra, catalog);
+    const dxf = buildObraDxf(obra, result);
+    const payload = parseDxfPayload(dxf);
+
+    expect(payload?.kind).toBe('obra');
+    if (payload?.kind !== 'obra') throw new Error('payload');
+    expect(payload.obra.name).toBe('Obra de prueba');
+    expect(payload.obra.rejas[0].name).toBe('Reja importable');
+    expect(payload.obra.rejas[0].config.barProfileId).toBe('r-1');
+  });
+
+  it('embebe una sola reja en el DXF de la reja activa', () => {
+    const obra = createObra();
+    const reja = { ...obra.rejas[0], name: 'Reja activa' };
+    const design = computeDesign(reja.config, catalog);
+    const dxf = buildDesignDxf(reja.name, design, 1500, 600, reja);
+    const payload = parseDxfPayload(dxf);
+
+    expect(payload?.kind).toBe('reja');
+    if (payload?.kind !== 'reja') throw new Error('payload');
+    expect(payload.reja.name).toBe('Reja activa');
+    expect(payload.reja.config.window.widthMm).toBe(1500);
+  });
+
+  it('lee el contorno de un DXF externo sin metadatos', () => {
+    const cfg = makeConfig();
+    const design = computeDesign(cfg, catalog);
+    const dxf = buildRejasDxf([{ name: 'Externo', widthMm: 1500, heightMm: 600, design }]);
+    expect(readDxfGeometry(dxf)).toEqual({ widthMm: 1500, heightMm: 600 });
+  });
+
+  it('lee polilíneas de un DXF externo', () => {
+    const dxf = [
+      '0', 'SECTION', '2', 'ENTITIES',
+      '0', 'LWPOLYLINE', '8', '0', '90', '4',
+      '10', '0', '20', '0',
+      '10', '100', '20', '0',
+      '10', '100', '20', '50',
+      '10', '0', '20', '50',
+      '0', 'ENDSEC', '0', 'EOF', '',
+    ].join('\r\n');
+    expect(readDxfGeometry(dxf)).toEqual({ widthMm: 100, heightMm: 50 });
   });
 
   it('translada acentos y símbolos a ASCII para que no se rompa en CAD', () => {

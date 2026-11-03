@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { computeBudget } from '../core/budget';
 import { buildShareSummary, obraFileName, slugify } from '../core/document';
-import { buildDesignDxf, buildObraDxf } from '../core/dxf';
+import { buildDesignDxf, buildObraDxf, parseDxfPayload, readDxfGeometry } from '../core/dxf';
 import { cutListCsv, download, downloadBlob, materialsCsv } from '../core/exporters';
+import { exportObraJson, parseObraFile } from '../core/obraFile';
 import { fmtInt, fmtMeters, fmtMm, fmtMoney, fmtNum, fmtPct } from '../core/format';
 import { barSizeLabel, holeSizeLabel, STRUCTURAL_DISCLAIMER } from '../core/geometry';
 import { applyPlanToInventory } from '../core/inventory';
 import {
-  addReja, computeObra, configWithCutting, createObra, duplicateReja, makeId, removeReja, renameReja, selectReja,
-  CATALOG_KEY, INVENTORY_KEY, UNIT_KEY,
+  addReja, computeObra, configWithCutting, createObra, DEFAULT_LABOR, duplicateReja, makeId, removeReja, renameReja, selectReja,
+  uniqueName, CATALOG_KEY, INVENTORY_KEY, UNIT_KEY,
 } from '../core/obra';
 import {
   DEFAULT_CATALOG, applyStylePreset, barOptionLabel, barProfilesForStyle, barShape,
@@ -16,7 +18,7 @@ import {
   inPlaneDim, isValidRect, isValidRound, profileLabel, recommendFrameProfile, sectionKey,
 } from '../core/profiles';
 import type {
-  Catalog, Issue, LaborMode, ObraCuttingConfig, Offcut, Orientation, ProjectConfig, RejaLabor, RectProfile,
+  Catalog, Issue, LaborMode, ObraCuttingConfig, Offcut, Orientation, ProjectConfig, Reja, RejaLabor, RectProfile,
 } from '../core/types';
 import { CutPlanView } from './CutPlanView';
 import heroReja from '../assets/hero-reja.svg';
@@ -67,6 +69,7 @@ export function App() {
   const [newOff, setNewOff] = useState<{ key: string; len: number }>({ key: '', len: 500 });
   const [planScope, setPlanScope] = useState<'obra' | 'reja'>('obra');
   const [flash, setFlash] = useState('');
+  const importInput = useRef<HTMLInputElement>(null);
 
   const setConfig = (fn: (c: ProjectConfig) => void) => setObra((p) => ({
     ...p,
@@ -130,6 +133,70 @@ export function App() {
   const activePlan = planScope === 'reja' ? activeResult.plan : result.plan;
 
   /**
+   * Importa un archivo de obra JSON o un DXF.
+   * - JSON: reemplaza la obra completa.
+   * - DXF con metadatos de la app: reemplaza la obra (si es de obra) o agrega una reja.
+   * - DXF externo: agrega una reja nueva con el ancho/alto del contorno y los perfiles actuales.
+   */
+  const importFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const isDxf = file.name.toLowerCase().endsWith('.dxf') || text.includes('$ACADVER');
+      if (isDxf) {
+        const payload = parseDxfPayload(text);
+        if (payload?.kind === 'obra') {
+          if (!confirm(`¿Reemplazar la obra actual por «${payload.obra.name || 'obra importada'}»?`)) return;
+          setObra(payload.obra);
+          setFlash('Obra importada desde DXF.');
+          return;
+        }
+        if (payload?.kind === 'reja') {
+          setObra((p) => {
+            const copy: Reja = {
+              ...payload.reja,
+              id: makeId(),
+              name: uniqueName(p, payload.reja.name || 'Reja importada'),
+            };
+            return { ...p, rejas: [...p.rejas, copy], activeRejaId: copy.id };
+          });
+          setFlash('Reja importada desde DXF.');
+          return;
+        }
+        const geom = readDxfGeometry(text);
+        if (!geom) {
+          setFlash('El DXF no contiene geometría reconocible. Probá con un DXF en milímetros.');
+          return;
+        }
+        setObra((p) => {
+          const copy: Reja = {
+            id: makeId(),
+            name: uniqueName(p, file.name.replace(/\.dxf$/i, '') || 'Reja importada'),
+            config: { ...structuredClone(config), window: { widthMm: geom.widthMm, heightMm: geom.heightMm } },
+            labor: { ...DEFAULT_LABOR },
+          };
+          return { ...p, rejas: [...p.rejas, copy], activeRejaId: copy.id };
+        });
+        setFlash(`DXF importado como contorno de ${fmtMm(geom.widthMm)} × ${fmtMm(geom.heightMm)}. Revisá perfiles y barrotes.`);
+        return;
+      }
+
+      const imported = parseObraFile(text);
+      if (!imported) {
+        setFlash('No se pudo leer el archivo. Se esperaba una obra JSON o un DXF.');
+        return;
+      }
+      if (!confirm(`¿Reemplazar la obra actual por «${imported.name || 'obra importada'}»?`)) return;
+      setObra(imported);
+      setFlash('Obra importada desde JSON.');
+    } catch (err) {
+      setFlash(`No se pudo importar: ${(err as Error).message}`);
+    }
+  };
+
+  /**
    * WhatsApp no permite adjuntar archivos por enlace (`wa.me` no soporta archivos).
    * Por eso el PDF se manda por la Web Share API: en el celular se abre la hoja de
    * compartir del sistema, se elige WhatsApp y el PDF viaja adjunto. Si el navegador
@@ -187,9 +254,20 @@ export function App() {
       <section className="card obra" data-area="screen">
         <div className="card-head">
           <h2>Rejas de la obra ({obra.rejas.length})</h2>
-          <button type="button" className="primary" onClick={() => setObra((p) => addReja(p))}>+ Agregar reja</button>
+          <div className="actions">
+            <input
+              ref={importInput}
+              type="file"
+              accept=".json,.dxf,application/json,application/dxf"
+              style={{ display: 'none' }}
+              onChange={importFile}
+            />
+            <button type="button" className="ghost" onClick={() => importInput.current?.click()}>Importar obra (JSON/DXF)</button>
+            <button type="button" className="ghost" onClick={() => download(obraFileName(obra, 'json'), exportObraJson(obra), 'application/json')}>Guardar JSON</button>
+            <button type="button" className="primary" onClick={() => setObra((p) => addReja(p))}>+ Agregar reja</button>
+          </div>
         </div>
-        <p className="muted small">Cada reja tiene su propia configuración. Los materiales, los cortes y el presupuesto se suman para toda la obra.</p>
+        <p className="muted small">Cada reja tiene su propia configuración. Los materiales, los cortes y el presupuesto se suman para toda la obra. Podés importar una obra guardada en JSON o un DXF; si el DXF viene de esta app, se recuperan las rejas y su configuración.</p>
         <ul className="reja-list">
           {obra.rejas.map((r) => {
             const rr = result.rejas.find((x) => x.reja.id === r.id);
@@ -632,7 +710,7 @@ export function App() {
                 type="button"
                 className="ghost"
                 disabled={!result.hasAnyValid}
-                onClick={() => download(obraFileName(obra, 'dxf'), buildObraDxf(result), 'application/dxf')}
+                onClick={() => download(obraFileName(obra, 'dxf'), buildObraDxf(obra, result), 'application/dxf')}
               >Planos DXF (toda la obra)</button>
               <button
                 type="button"
@@ -640,7 +718,7 @@ export function App() {
                 disabled={errors.length > 0 || design.layout.length === 0}
                 onClick={() => download(
                   `${slugify(obra.name ? `${obra.name}-${active.name}` : active.name)}.dxf`,
-                  buildDesignDxf(active.name, design, W, H),
+                  buildDesignDxf(active.name, design, W, H, active),
                   'application/dxf',
                 )}
               >Plano DXF (reja activa)</button>

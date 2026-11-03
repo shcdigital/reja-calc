@@ -24,6 +24,8 @@ describe('Interfaz (render de humo)', () => {
       'Hoja de taller',
       'Planos DXF (toda la obra)',
       'Plano DXF (reja activa)',
+      'Importar obra (JSON/DXF)',
+      'Guardar JSON',
     ]) {
       expect(html).toContain(t);
     }

@@ -51,6 +51,7 @@ Todo corre en el navegador: sin backend, sin cuentas y sin servicios externos. L
 - **Enviar por WhatsApp**: arma el PDF y lo comparte **como archivo adjunto** con la compartición nativa del sistema (Web Share API). Si el navegador no sabe compartir archivos (varios de escritorio), descarga el PDF y abre WhatsApp con el resumen para adjuntarlo con el clip.
 - **CSV** de cortes y de materiales, con «;» y coma decimal para abrirlos directo en Excel en español. El CSV es para tablas, no para geometría; para llevar el plano a otro software usá el DXF.
 - **DXF para CAD**: planos en milímetros, formato ASCII R12 (muy compatible con AutoCAD, LibreCAD, QCAD y otros), con capas separadas `MARCO`, `REFUERZO`, `BARROTES`, `COTAS` y `TEXTOS`. Se puede exportar la obra completa con todas las rejas ubicadas una al lado de la otra o solo la reja activa.
+- **Importar/exportar obra**: el JSON guarda y restaura toda la obra editable. El DXF exportado incluye metadatos para volver a importarlo con sus rejas y configuración; un DXF externo sin metadatos se importa como contorno nuevo usando el ancho y alto detectados. Si un programa de CAD elimina los comentarios al volver a guardar el DXF, la reimportación se limita al contorno.
 
 ## Requisitos y ejecución
 
@@ -79,7 +80,7 @@ origen **GitHub Actions** (`gh api -X PUT repos/<usuario>/<repo>/pages -f build_
 
 ## Cómo se usa
 
-1. Poné el **nombre de la obra** y cargá la primera **reja** (ancho y alto exteriores).
+1. Poné el **nombre de la obra** y cargá la primera **reja** (ancho y alto exteriores). Desde la tarjeta de la obra podés **importar una obra JSON/DXF** o **guardar la obra en JSON**.
 2. Usá **«Agregar reja»** para sumar más rejas; renombrá, duplicá o eliminá según haga falta.
 3. Por reja:
    - **1. Ventana**: medidas exteriores.
@@ -107,7 +108,8 @@ src/core/            Motor de cálculo (sin React, probado)
   obra.ts              obra multi-reja: modelo, persistencia, migración y plan unificado
   budget.ts            presupuesto de obra (materiales + consumibles + mano de obra)
   document.ts          nombre de archivo, resumen para compartir y contenido del PDF
-  dxf.ts               exportación de planos a DXF R12 (CAD)
+  dxf.ts               exportación/importación de planos DXF R12 (CAD)
+  obraFile.ts          archivo JSON editable de la obra (exportar/importar)
   exporters.ts         CSV y descarga de archivos
   exporters.test.ts    pruebas de exportación (formato y seguridad del CSV)
   format.ts            formato de números y medidas (es-AR)

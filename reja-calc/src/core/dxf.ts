@@ -1,16 +1,20 @@
 /**
- * Exportación de planos a DXF ASCII R12 (AutoCAD, LibreCAD, QCAD, etc.).
+ * Exportación e importación de planos DXF ASCII R12 (AutoCAD, LibreCAD, QCAD, etc.).
  *
  * El plano se dibuja en milímetros reales, con Y hacia arriba (convención CAD).
  * Cada reja va en su propio bloque de coordenadas, una al lado de la otra, y las
  * piezas se separan por capas: marco, refuerzo/travesaño, barrotes, cotas y textos.
  *
+ * Los DXF exportados llevan metadatos en comentarios `999` para reimportar la obra
+ * completa o una reja. Un DXF externo se puede importar como contorno (ancho/alto).
+ *
  * R12 se elige a propósito: es el formato DXF más compatible con software de CAD
  * antiguo y moderno, y no requiere librerías externas.
  */
 import { fmtNum } from './format';
+import { DEFAULT_BUDGET, DEFAULT_CUTTING, parseObra } from './obra';
 import type { ObraResult } from './obra';
-import type { Design, LayoutRect, PieceType } from './types';
+import type { Design, LayoutRect, Obra, PieceType, Reja } from './types';
 
 const CRLF = '\r\n';
 const GAP_MM = 300;
@@ -22,6 +26,17 @@ export interface DxfReja {
   heightMm: number;
   design: Design;
 }
+
+/**
+ * Datos de la calculadora embebidos como comentarios `999` del DXF.
+ * Permiten volver a importar el archivo sin perder configuración, perfiles ni mano de obra.
+ */
+export type DxfPayload =
+  | { format: 'reja-calc/dxf'; version: 1; kind: 'obra'; obra: Obra }
+  | { format: 'reja-calc/dxf'; version: 1; kind: 'reja'; reja: Reja };
+
+const META_PREFIX = 'RCALC:';
+const META_CHUNK = 180;
 
 interface Box {
   minX: number;
@@ -55,6 +70,48 @@ const num = (n: number): string => {
   const r = Math.round(n * 1000) / 1000;
   return Object.is(r, -0) ? '0' : String(r);
 };
+
+/** Convierte el payload en comentarios DXF cortos, sin caracteres no ASCII. */
+function metaComments(payload: DxfPayload): string[] {
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  const chunks = encoded.match(new RegExp(`.{1,${META_CHUNK}}`, 'g')) ?? [];
+  return chunks.map((chunk) => `${META_PREFIX}${chunk}`);
+}
+
+/** Lee el payload embebido en un DXF exportado por la app, si existe. */
+export function parseDxfPayload(text: string): DxfPayload | null {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const chunks: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith(META_PREFIX)) chunks.push(line.slice(META_PREFIX.length));
+  }
+  if (chunks.length === 0) return null;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(chunks.join(''))) as {
+      format?: unknown; version?: unknown; kind?: unknown; obra?: Obra; reja?: Reja;
+    };
+    if (parsed.format !== 'reja-calc/dxf' || parsed.version !== 1) return null;
+    if (parsed.kind === 'obra' && parsed.obra) {
+      const obra = parseObra(JSON.stringify(parsed.obra));
+      return obra ? { format: 'reja-calc/dxf', version: 1, kind: 'obra', obra } : null;
+    }
+    if (parsed.kind === 'reja' && parsed.reja) {
+      const wrapped = {
+        id: 'import',
+        name: '',
+        rejas: [parsed.reja],
+        activeRejaId: parsed.reja.id,
+        cutting: DEFAULT_CUTTING,
+        budget: DEFAULT_BUDGET,
+      };
+      const obra = parseObra(JSON.stringify(wrapped));
+      return obra?.rejas[0] ? { format: 'reja-calc/dxf', version: 1, kind: 'reja', reja: obra.rejas[0] } : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 function layerFor(type: PieceType): string {
   if (type === 'reinforcement') return 'REFUERZO';
@@ -215,8 +272,118 @@ function addReja(
   box.minY = Math.min(box.minY, -DIM_OFFSET_MM - 32);
 }
 
+/**
+ * Lee un DXF ajeno (sin metadatos de la calculadora) y devuelve el ancho y alto
+ * del contorno geométrico, en mm. Es una importación de referencia: no intenta
+ * adivinar perfiles ni cantidad de barrotes.
+ */
+export function readDxfGeometry(text: string): { widthMm: number; heightMm: number } | null {
+  try {
+    const clean = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = clean.split('\n');
+    const pairs: { code: number; value: string }[] = [];
+    for (let i = 0; i + 1 < lines.length; i += 2) {
+      const code = Number(lines[i].trim());
+      if (Number.isFinite(code)) pairs.push({ code, value: lines[i + 1] });
+    }
+    if (pairs.length === 0) return null;
+
+    // Unidades del header: 1=pulg, 2=pie, 4=mm, 5=cm, 6=m. Por defecto mm.
+    let unit = 4;
+    for (let i = 0; i < pairs.length - 1; i++) {
+      if (pairs[i].value.trim() === '$INSUNITS' && pairs[i + 1].code === 70) {
+        const parsed = Number(pairs[i + 1].value);
+        if (parsed > 0) unit = parsed;
+        break;
+      }
+    }
+    const scale = unit === 1 ? 25.4 : unit === 2 ? 304.8 : unit === 5 ? 10 : unit === 6 ? 1000 : 1;
+
+    type Entity = { type: string; groups: { code: number; value: string }[] };
+    const entities: Entity[] = [];
+    let current: Entity | null = null;
+    let inEntities = false;
+    let expectSectionName = false;
+    for (const pair of pairs) {
+      if (pair.code === 0) {
+        const type = pair.value.trim().toUpperCase();
+        if (type === 'SECTION') {
+          if (current && inEntities) entities.push(current);
+          expectSectionName = true;
+          inEntities = false;
+          current = null;
+          continue;
+        }
+        if (type === 'ENDSEC') {
+          if (current && inEntities) entities.push(current);
+          expectSectionName = false;
+          inEntities = false;
+          current = null;
+          continue;
+        }
+        if (!inEntities) continue;
+        if (current) entities.push(current);
+        current = { type, groups: [] };
+      } else if (pair.code === 2 && expectSectionName) {
+        expectSectionName = false;
+        inEntities = pair.value.trim().toUpperCase() === 'ENTITIES';
+      } else if (inEntities && current) {
+        current.groups.push(pair);
+      }
+    }
+    if (current && inEntities) entities.push(current);
+
+    const ignoredLayer = /^(COTAS?|COTA|DIM|DIMENSION|TEXTOS?|TEXT|NOTAS?)/;
+    const points: { x: number; y: number }[] = [];
+    const first = (groups: { code: number; value: string }[], code: number) =>
+      groups.find((g) => g.code === code)?.value;
+    const all = (groups: { code: number; value: string }[], code: number) =>
+      groups.filter((g) => g.code === code).map((g) => Number(g.value));
+    const push = (x: number, y: number) => {
+      if (Number.isFinite(x) && Number.isFinite(y)) points.push({ x, y });
+    };
+
+    for (const entity of entities) {
+      if (!['LINE', 'LWPOLYLINE', 'VERTEX', 'CIRCLE', 'POINT'].includes(entity.type)) continue;
+      const layer = (first(entity.groups, 8) ?? '').toUpperCase();
+      if (ignoredLayer.test(layer)) continue;
+      if (entity.type === 'LINE') {
+        push(Number(first(entity.groups, 10)), Number(first(entity.groups, 20)));
+        push(Number(first(entity.groups, 11)), Number(first(entity.groups, 21)));
+      } else if (entity.type === 'LWPOLYLINE') {
+        const xs = all(entity.groups, 10);
+        const ys = all(entity.groups, 20);
+        for (let i = 0; i < Math.min(xs.length, ys.length); i++) push(xs[i], ys[i]);
+      } else if (entity.type === 'VERTEX' || entity.type === 'POINT') {
+        push(Number(first(entity.groups, 10)), Number(first(entity.groups, 20)));
+      } else if (entity.type === 'CIRCLE') {
+        const x = Number(first(entity.groups, 10));
+        const y = Number(first(entity.groups, 20));
+        const r = Number(first(entity.groups, 40));
+        push(x - r, y - r);
+        push(x + r, y + r);
+      }
+    }
+
+    if (points.length === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of points) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const width = (maxX - minX) * scale;
+    const height = (maxY - minY) * scale;
+    if (!(width > 0) || !(height > 0)) return null;
+    return { widthMm: Math.round(width * 10) / 10, heightMm: Math.round(height * 10) / 10 };
+  } catch {
+    return null;
+  }
+}
+
 /** Arma un único DXF con todas las rejas indicadas, ubicadas una al lado de otra. */
-export function buildRejasDxf(rejas: DxfReja[]): string {
+export function buildRejasDxf(rejas: DxfReja[], payload?: DxfPayload): string {
   const body: string[] = [];
   const g = (code: number, value: string | number) => { body.push(String(code)); body.push(String(value)); };
   const box: Box = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
@@ -231,11 +398,13 @@ export function buildRejasDxf(rejas: DxfReja[]): string {
   if (cursorX > 0) cursorX -= GAP_MM;
   box.maxX = Math.max(box.maxX, cursorX);
 
+  const meta = payload ? metaComments(payload).flatMap((value) => ['999', value]) : [];
   const out: string[] = [
     ...header(box),
     ...tables(),
     '0', 'SECTION', '2', 'BLOCKS', '0', 'ENDSEC',
     '0', 'SECTION', '2', 'ENTITIES',
+    ...meta,
     ...body,
     '0', 'ENDSEC',
     '0', 'EOF',
@@ -244,8 +413,8 @@ export function buildRejasDxf(rejas: DxfReja[]): string {
   return out.join(CRLF);
 }
 
-/** DXF de la obra completa: todas las rejas válidas, lado a lado. */
-export function buildObraDxf(result: ObraResult): string {
+/** DXF de la obra completa: todas las rejas válidas, lado a lado, con metadatos de la obra. */
+export function buildObraDxf(obra: Obra, result: ObraResult): string {
   return buildRejasDxf(
     result.valid.map((r) => ({
       name: r.reja.name,
@@ -253,10 +422,14 @@ export function buildObraDxf(result: ObraResult): string {
       heightMm: r.config.window.heightMm,
       design: r.design,
     })),
+    { format: 'reja-calc/dxf', version: 1, kind: 'obra', obra },
   );
 }
 
-/** DXF de una sola reja (por ejemplo, la reja activa). */
-export function buildDesignDxf(name: string, design: Design, widthMm: number, heightMm: number): string {
-  return buildRejasDxf([{ name, widthMm, heightMm, design }]);
+/** DXF de una sola reja (por ejemplo, la reja activa), con metadatos de esa reja. */
+export function buildDesignDxf(name: string, design: Design, widthMm: number, heightMm: number, reja?: Reja): string {
+  return buildRejasDxf(
+    [{ name, widthMm, heightMm, design }],
+    reja ? { format: 'reja-calc/dxf', version: 1, kind: 'reja', reja } : undefined,
+  );
 }

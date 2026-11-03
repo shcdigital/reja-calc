@@ -88,7 +88,8 @@ h4 { font-size: .95rem; margin: 0; }
   opacity: .9;
 }
 .card.wide { margin-top: 1rem; }
-.card-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.card-head .actions { margin-top: 0; }
 .muted { color: var(--muted); } .small { font-size: .85rem; }
 .ok { color: var(--ok); } .warn { color: var(--warn); }
 .row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: end; }
