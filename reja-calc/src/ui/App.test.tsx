@@ -22,6 +22,8 @@ describe('Interfaz (render de humo)', () => {
       'Descargar PDF',
       'Enviar PDF por WhatsApp',
       'Hoja de taller',
+      'Planos DXF (toda la obra)',
+      'Plano DXF (reja activa)',
     ]) {
       expect(html).toContain(t);
     }

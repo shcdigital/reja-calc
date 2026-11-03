@@ -49,7 +49,8 @@ Todo corre en el navegador: sin backend, sin cuentas y sin servicios externos. L
 - **Hoja de taller imprimible**: datos de armado, plano, lista de cortes, **plan de cortes con las barras de color de cada tramo** (piezas, pérdidas de disco y sobrantes, igual que en la web) y presupuesto. **Cada reja arranca en su propia hoja**, y «qué sale de cada perfil» también empieza en hoja nueva.
 - **PDF** = **copia fiel de la hoja de taller**: se renderiza ese mismo HTML (html2canvas + jsPDF, se cargan solo al usarlo) y el archivo sale idéntico a la impresión, **con el plan de cortes en color**. El **fondo es 100 % blanco** (sin grises ni tramas): el color queda en el texto, el plano y las barras. Los cortes de hoja se hacen en el borde de cada bloque, así que ninguna barra ni fila queda partida al medio. «Descargar PDF» y «Enviar por WhatsApp» usan ese mismo PDF. Si por algún motivo no se pudiera usar el DOM, cae a un PDF de texto equivalente.
 - **Enviar por WhatsApp**: arma el PDF y lo comparte **como archivo adjunto** con la compartición nativa del sistema (Web Share API). Si el navegador no sabe compartir archivos (varios de escritorio), descarga el PDF y abre WhatsApp con el resumen para adjuntarlo con el clip.
-- **CSV** de cortes y de materiales, con «;» y coma decimal para abrirlos directo en Excel en español.
+- **CSV** de cortes y de materiales, con «;» y coma decimal para abrirlos directo en Excel en español. El CSV es para tablas, no para geometría; para llevar el plano a otro software usá el DXF.
+- **DXF para CAD**: planos en milímetros, formato ASCII R12 (muy compatible con AutoCAD, LibreCAD, QCAD y otros), con capas separadas `MARCO`, `REFUERZO`, `BARROTES`, `COTAS` y `TEXTOS`. Se puede exportar la obra completa con todas las rejas ubicadas una al lado de la otra o solo la reja activa.
 
 ## Requisitos y ejecución
 
@@ -88,7 +89,7 @@ origen **GitHub Actions** (`gh api -X PUT repos/<usuario>/<repo>/pages -f build_
 4. **5. Parámetros de corte (obra)**: disco, largo comercial, refilado, largo mínimo de sobrante y reutilización.
 5. Revisá **6. Vista previa**, **7. Lista de materiales** y **8. Plan de cortes** (podés ver toda la obra o solo los tramos de la reja activa) e imprimí la hoja de taller.
 6. En **9. Presupuesto y exportación**, activá el presupuesto, cargá precios por barra/caño, consumibles y la mano de obra de cada reja.
-7. **Descargar PDF** o **Enviar PDF por WhatsApp**, y exportá los CSV si los necesitás.
+7. **Descargar PDF**, **Enviar PDF por WhatsApp** o exportá los **planos DXF** para abrirlos en CAD. También podés bajar los CSV de cortes y materiales.
 
 Las medidas que dependen de decisiones técnicas (disco, holgura por unión, refilado, agujeros, largo comercial, medidas reales de los perfiles, precios) son **parámetros editables**, no valores ocultos. El detalle de fórmulas está en `docs/FORMULAS.md`.
 
@@ -106,6 +107,7 @@ src/core/            Motor de cálculo (sin React, probado)
   obra.ts              obra multi-reja: modelo, persistencia, migración y plan unificado
   budget.ts            presupuesto de obra (materiales + consumibles + mano de obra)
   document.ts          nombre de archivo, resumen para compartir y contenido del PDF
+  dxf.ts               exportación de planos a DXF R12 (CAD)
   exporters.ts         CSV y descarga de archivos
   exporters.test.ts    pruebas de exportación (formato y seguridad del CSV)
   format.ts            formato de números y medidas (es-AR)

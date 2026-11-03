@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { computeBudget } from '../core/budget';
-import { buildShareSummary, obraFileName } from '../core/document';
+import { buildShareSummary, obraFileName, slugify } from '../core/document';
+import { buildDesignDxf, buildObraDxf } from '../core/dxf';
 import { cutListCsv, download, downloadBlob, materialsCsv } from '../core/exporters';
 import { fmtInt, fmtMeters, fmtMm, fmtMoney, fmtNum, fmtPct } from '../core/format';
 import { barSizeLabel, holeSizeLabel, STRUCTURAL_DISCLAIMER } from '../core/geometry';
@@ -627,10 +628,26 @@ export function App() {
               <button type="button" className="primary" onClick={() => print('worksheet')}>Hoja de taller (imprimir)</button>
               <button type="button" className="primary" onClick={exportPdf}>Descargar PDF</button>
               <button type="button" className="ghost" onClick={shareWhatsApp}>Enviar PDF por WhatsApp</button>
+              <button
+                type="button"
+                className="ghost"
+                disabled={!result.hasAnyValid}
+                onClick={() => download(obraFileName(obra, 'dxf'), buildObraDxf(result), 'application/dxf')}
+              >Planos DXF (toda la obra)</button>
+              <button
+                type="button"
+                className="ghost"
+                disabled={errors.length > 0 || design.layout.length === 0}
+                onClick={() => download(
+                  `${slugify(obra.name ? `${obra.name}-${active.name}` : active.name)}.dxf`,
+                  buildDesignDxf(active.name, design, W, H),
+                  'application/dxf',
+                )}
+              >Plano DXF (reja activa)</button>
               <button type="button" className="ghost" disabled={!result.plan} onClick={() => result.plan && download('cortes.csv', cutListCsv(result.pieces, result.plan))}>Cortes (CSV)</button>
               <button type="button" className="ghost" onClick={() => download('materiales.csv', materialsCsv(result.materials))}>Materiales (CSV)</button>
             </div>
-            <p className="muted small">El PDF es la <b>misma hoja de taller</b>: se genera desde ese HTML, así que sale idéntico a la impresión (datos de armado y plano por reja, lista de cortes, plan de cortes, materiales y presupuesto). «Enviar PDF por WhatsApp» manda ese mismo archivo; si el navegador no lo permite, lo descarga para que lo adjuntes con el clip. Los CSV usan «;» y coma decimal, para abrirlos directo en Excel en español.</p>
+            <p className="muted small">El PDF es la <b>misma hoja de taller</b>: se genera desde ese HTML, así que sale idéntico a la impresión (datos de armado y plano por reja, lista de cortes, plan de cortes, materiales y presupuesto). «Enviar PDF por WhatsApp» manda ese mismo archivo; si el navegador no lo permite, lo descarga para que lo adjuntes con el clip. Los CSV usan «;» y coma decimal, para abrirlos directo en Excel en español. Los <b>DXF</b> son ASCII R12 en milímetros, con capas separadas para marco, refuerzo, barrotes, cotas y textos; se abren en AutoCAD, LibreCAD, QCAD y otros programas de CAD.</p>
           </section>
 
           <ObraWorksheet obra={obra} result={result} budget={budget} />
