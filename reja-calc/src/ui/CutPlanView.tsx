@@ -1,14 +1,17 @@
 import { fmtMm, fmtPct } from '../core/format';
+import { sectionUnit } from '../core/profiles';
 import type { CuttingPlan, SectionPlan } from '../core/types';
 import { BinBar, binName, CutLegend } from './CutPlanParts';
 
 function SectionView({ s, activeRejaId, scope }: { s: SectionPlan; activeRejaId?: string; scope: 'obra' | 'reja' }) {
+  const unit = sectionUnit(s.sectionKey);
+  const plural = unit === 'barra' ? 'barras' : 'caños';
   return (
     <section className="cut-section">
       <header>
         <h3>{s.profileLabel}</h3>
         <p className="muted">
-          {s.newBarsCount} {s.newBarsCount === 1 ? 'caño' : 'caños'} de {fmtMm(s.stockLengthMm)} a comprar
+          {s.newBarsCount} {s.newBarsCount === 1 ? unit : plural} de {fmtMm(s.stockLengthMm)} a comprar
           {scope === 'obra' ? (
             <>
               {' · '}cota inferior teórica: {s.lowerBoundBars}
@@ -17,7 +20,7 @@ function SectionView({ s, activeRejaId, scope }: { s: SectionPlan; activeRejaId?
               {' · '}{s.method}
             </>
           ) : (
-            <> {' · '}subconjunto del plan de obra: los caños pueden compartirse con otras rejas</>
+            <> {' · '}subconjunto del plan de obra: los tramos pueden compartirse con otras rejas</>
           )}
         </p>
       </header>
@@ -26,10 +29,10 @@ function SectionView({ s, activeRejaId, scope }: { s: SectionPlan; activeRejaId?
         return (
           <article className="bin" key={`${b.source.kind}${b.index}`}>
             <div className="bin-head">
-              <h4>{binName(b)}{b.source.kind === 'offcut' && <span className="tag">de inventario: {b.source.origin} · {fmtMm(b.source.lengthMm)}</span>}</h4>
+              <h4>{binName(b, unit)}{b.source.kind === 'offcut' && <span className="tag">de inventario: {b.source.origin} · {fmtMm(b.source.lengthMm)}</span>}</h4>
               <span className="muted">{fmtPct(util)} en piezas</span>
             </div>
-            <BinBar bin={b} activeRejaId={activeRejaId} />
+            <BinBar bin={b} activeRejaId={activeRejaId} unit={unit} />
             <ul className="bin-items">
               {b.items.map((it) => <li key={it.pieceId}><b>{it.localId ?? it.pieceId}</b> {fmtMm(it.lengthMm)}</li>)}
             </ul>

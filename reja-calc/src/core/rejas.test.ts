@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { computeDesign, distributeBars, groupPieces } from './geometry';
+import { computeDesign, computeWindowClasica, computeWindowModerna, distributeBars, groupPieces } from './geometry';
 import { packSection } from './cutting';
 import { computeProject } from './project';
 import { catalog, makeConfig } from './helpers';
 import type { ProjectConfig } from './types';
-import { sectionKey, findRound, findRect } from './profiles';
+import {
+  applyStylePreset, barProfilesForStyle, ensureCatalogDefaults, findRect, findRound,
+  frameProfilesForStyle, sectionKey,
+} from './profiles';
 import { applyPlanToInventory } from './inventory';
 import { cutListCsv } from './exporters';
 import type { Offcut } from './types';
@@ -18,7 +21,7 @@ describe('Despiece 1500 × 600, caño 1¼" (marco 40×20, lado menor a la vista)
     expect(d.issues.filter((i) => i.level === 'error')).toEqual([]);
     expect(d.derived!.innerWidthMm).toBe(1460);
     expect(d.derived!.innerHeightMm).toBe(560);
-    expect(d.derived!.sectorWidthMm).toBe(720);
+    expect(d.derived!.sectorMm).toBe(720);
     expect(d.distribution!.count).toBe(4);
     near(d.distribution!.gapMm, (560 - 4 * 31.75) / 5); // 86,6
   });
@@ -88,6 +91,8 @@ describe('Dimensiones pequeñas', () => {
     expect(computeDesign(makeConfig({ w: -5 }), catalog).issues.some((i) => i.code === 'width')).toBe(true);
     const c = makeConfig(); c.window.heightMm = 0;
     expect(computeDesign(c, catalog).issues.some((i) => i.code === 'height')).toBe(true);
+    const edge = makeConfig(); edge.fabrication.horizontalEdgeMm = -1;
+    expect(computeDesign(edge, catalog).issues.some((i) => i.code === 'horizontal-edge')).toBe(true);
   });
 });
 
@@ -115,18 +120,18 @@ describe('Distribución simétrica y uniforme', () => {
   for (const [w, h] of [[1500, 600], [1800, 1500], [900, 1200], [1234, 987]]) {
     it(`${w} × ${h}`, () => {
       const d = computeDesign(makeConfig({ w, h }), catalog);
-      const { topsMm, gapMm, count } = d.distribution!;
-      const dd = d.derived!.barOdMm;
+      const { positionsMm, gapMm, count } = d.distribution!;
+      const dd = d.derived!.barSizeMm;
       const pf = d.derived!.frameInPlaneMm;
-      near(topsMm[0] - pf, gapMm);
-      for (let i = 1; i < count; i++) near(topsMm[i] - (topsMm[i - 1] + dd), gapMm);
-      near(h - pf - (topsMm[count - 1] + dd), gapMm);
-      for (let i = 0; i < count; i++) near(topsMm[i] - pf, h - 2 * pf - (topsMm[count - 1 - i] - pf) - dd);
+      near(positionsMm[0] - pf, gapMm);
+      for (let i = 1; i < count; i++) near(positionsMm[i] - (positionsMm[i - 1] + dd), gapMm);
+      near(h - pf - (positionsMm[count - 1] + dd), gapMm);
+      for (let i = 0; i < count; i++) near(positionsMm[i] - pf, h - 2 * pf - (positionsMm[count - 1 - i] - pf) - dd);
       expect(gapMm).toBeLessThanOrEqual(100 + 1e-9);
     });
   }
   it('distributeBars directo', () => {
-    const { distribution } = distributeBars({ innerHeightMm: 560, barOdMm: 31.75, desiredGapMm: 100, minGapMm: 60, mode: 'auto', manualCount: 0, innerTopMm: 0 });
+    const { distribution } = distributeBars({ spanMm: 560, barSizeMm: 31.75, desiredGapMm: 100, minGapMm: 60, mode: 'auto', manualCount: 0, startMm: 0, direction: 'horizontal' });
     expect(distribution!.count).toBe(4);
   });
 });
@@ -210,8 +215,8 @@ describe('Marco con tramos superior e inferior (MS/MI) de caño redondo', () => 
     expect(d.derived!.frameInPlaneMm).toBe(20); // laterales: rectangular 20 a la vista
     expect(d.derived!.frameHorizontalMm).toBe(31.75); // MS/MI: caño Ø31,75
     expect(d.derived!.horizontalEdgeMm).toBe(5); // borde del agujero a 0,5 cm del extremo
-    expect(d.derived!.barsInLateral).toBe(false); // los barrotes van a tope...
-    expect(d.derived!.lateralHoleMm).toBe(32.75); // ...pero MS/MI igual se alojan
+    expect(d.derived!.barsInserted).toBe(false); // los barrotes van a tope...
+    expect(d.derived!.barHoleMm).toBe(32.75); // ...pero MS/MI igual se alojan
     expect(d.derived!.innerWidthMm).toBe(1460);
     // 600 − 2 × (5,5 del borde al caño + 31,75 del caño) = 525,5
     expect(d.derived!.innerHeightMm).toBe(525.5);
@@ -241,24 +246,24 @@ describe('Marco con tramos superior e inferior (MS/MI) de caño redondo', () => 
   });
 
   it('los barrotes arrancan debajo del caño redondo y la separación sigue siendo uniforme', () => {
-    const { topsMm, gapMm, count } = d.distribution!;
-    const innerTop = d.derived!.horizontalEdgeMm + (d.derived!.lateralHoleMm - 31.75) / 2 + 31.75;
+    const { positionsMm, gapMm, count } = d.distribution!;
+    const innerTop = d.derived!.horizontalEdgeMm + (d.derived!.barHoleMm - 31.75) / 2 + 31.75;
     expect(count).toBe(4);
-    near(topsMm[0] - innerTop, gapMm);
-    near(600 - innerTop - (topsMm[count - 1] + 31.75), gapMm);
+    near(positionsMm[0] - innerTop, gapMm);
+    near(600 - innerTop - (positionsMm[count - 1] + 31.75), gapMm);
   });
 
   it('los laterales llevan agujeros para MS/MI y, si los barrotes entran, también para ellos', () => {
     for (const id of ['LI', 'LD']) {
       const p = d.pieces.find((x) => x.id === id)!;
-      expect(p.notes).toMatch(/Perforar 2 agujeros Ø32.75 mm/);
+      expect(p.notes).toMatch(/Perforar 2 agujeros Ø32,8 mm/);
       expect(p.notes).toMatch(/uno para MS y otro para MI/);
       expect(p.notes).toMatch(/21,4 mm de los bordes superior e inferior/);
     }
     const withBars = computeDesign(makeConfig({ horizontals: 'round', ends: 'inserted' }), catalog);
     for (const id of ['LI', 'LD']) {
       const p = withBars.pieces.find((x) => x.id === id)!;
-      expect(p.notes).toMatch(/Perforar 6 agujeros Ø32.75 mm/);
+      expect(p.notes).toMatch(/Perforar 6 agujeros Ø32,8 mm/);
       expect(p.notes).toMatch(/uno por barrote/);
     }
   });
@@ -274,12 +279,12 @@ describe('Marco con tramos superior e inferior (MS/MI) de caño redondo', () => 
     const rc = d.pieces.find((p) => p.id === 'RC')!;
     expect(rc.lengthMm).toBe(600);
     expect(rc.notes).toMatch(/Tramo completo, igual que los laterales/);
-    expect(rc.notes).toMatch(/Perforar 2 agujeros Ø32.75 mm para MS\/MI/);
+    expect(rc.notes).toMatch(/Perforar 2 agujeros Ø32,8 mm para MS\/MI/);
     expect(rc.notes).not.toMatch(/barrotes pasantes/);
 
     const through = computeDesign(makeConfig({ horizontals: 'round', crossing: 'through' }), catalog);
     const rcThrough = through.pieces.find((p) => p.id === 'RC')!;
-    expect(rcThrough.notes).toMatch(/Perforar 2 agujeros Ø32.75 mm para MS\/MI/);
+    expect(rcThrough.notes).toMatch(/Perforar 2 agujeros Ø32,8 mm para MS\/MI/);
     expect(rcThrough.notes).toMatch(/Además, perforar 4 agujeros/);
   });
 
@@ -345,10 +350,10 @@ describe('Barrotes alojados en los laterales', () => {
   it('entran en el lateral y se frenan antes de la cara exterior', () => {
     const d = computeDesign(makeConfig({ ends: 'inserted' }), catalog);
     expect(d.issues.filter((i) => i.level === 'error')).toEqual([]);
-    expect(d.derived!.barsInLateral).toBe(true);
+    expect(d.derived!.barsInserted).toBe(true);
     // pf = 20, pared del marco = 2, freno = 1  →  entra 20 − 2 − 1 = 17 por lado
-    expect(d.derived!.lateralPenetrationMm).toBe(17);
-    expect(d.derived!.lateralHoleMm).toBe(32.75); // caño Ø31,75 + 1 de holgura
+    expect(d.derived!.barPenetrationMm).toBe(17);
+    expect(d.derived!.barHoleMm).toBe(32.75); // caño Ø31,75 + 1 de holgura
     const bars = d.pieces.filter((p) => p.type === 'bar');
     // dos tramos: (W/2 − rw/2 − jg) − (pared + freno) = 740 − 3 = 737
     expect(bars.map((p) => p.lengthMm)).toEqual(Array(8).fill(737));
@@ -361,7 +366,7 @@ describe('Barrotes alojados en los laterales', () => {
     const d = computeDesign(makeConfig({ ends: 'inserted' }), catalog);
     for (const id of ['LI', 'LD']) {
       const p = d.pieces.find((x) => x.id === id)!;
-      expect(p.notes).toMatch(/Perforar 4 agujeros Ø32.75 mm/);
+      expect(p.notes).toMatch(/Perforar 4 agujeros Ø32,8 mm/);
       expect(p.notes).toMatch(/cara interior/);
     }
     expect(d.pieces.find((p) => p.id === 'B01-I')!.notes).toMatch(/agujero del lateral izquierdo/);
@@ -369,8 +374,8 @@ describe('Barrotes alojados en los laterales', () => {
 
   it('a tope (por defecto) sigue arrancando en la cara interior del lateral', () => {
     const d = computeDesign(makeConfig({ ends: 'butt' }), catalog);
-    expect(d.derived!.barsInLateral).toBe(false);
-    expect(d.derived!.lateralHoleMm).toBe(0);
+    expect(d.derived!.barsInserted).toBe(false);
+    expect(d.derived!.barHoleMm).toBe(0);
     expect(d.layout.filter((r) => r.type === 'bar').every((r) => r.x !== 3)).toBe(true);
     expect(d.pieces.find((p) => p.id === 'LI')!.notes).not.toMatch(/Perforar/);
   });
@@ -562,32 +567,159 @@ describe('Exportación', () => {
   });
 });
 
+describe('Catálogo y claves de sección', () => {
+  it('separa caño redondo, barra maciza redonda y barra maciza cuadrada', () => {
+    const keys = new Set([
+      sectionKey({ id: 'a', kind: 'round', label: 'caño', odMm: 12.7, thicknessMm: 2 }),
+      sectionKey({ id: 'b', kind: 'round', label: 'redondo', odMm: 12.7, thicknessMm: 6.35, solid: true }),
+      sectionKey({ id: 'c', kind: 'round', label: 'cuadrado', odMm: 12.7, thicknessMm: 6.35, solid: true, square: true }),
+    ]);
+    expect(keys.size).toBe(3);
+  });
+
+  it('el catálogo clásico solo ofrece barras macizas cuadradas estándar', () => {
+    const squares = barProfilesForStyle(catalog, 'clasica');
+    expect(squares.length).toBeGreaterThan(0);
+    expect(squares.every((p) => p.solid && p.square)).toBe(true);
+    expect(squares.map((p) => p.odMm)).toEqual([7.94, 9.53, 11.11, 12.7, 14.29, 15.88, 19.05, 22.22, 25.4]);
+    expect(squares.find((p) => p.id === 'qm-12')!.odMm).toBe(12.7);
+  });
+
+  it('el catálogo moderno solo ofrece caños redondos huecos', () => {
+    const rounds = barProfilesForStyle(catalog, 'moderna');
+    expect(rounds.length).toBeGreaterThan(0);
+    expect(rounds.every((p) => !p.solid && !p.square)).toBe(true);
+  });
+
+  it('al cambiar de estilo elige los perfiles compatibles', () => {
+    const c = makeConfig();
+    c.style = 'clasica';
+    applyStylePreset(c, catalog, true);
+    expect(c.barProfileId).toBe('qm-12');
+    expect(c.frame.profileId).toBe('pl-32x5');
+    expect(c.bars.ends).toBe('inserted');
+    expect(c.frame.horizontalProfile).toBe('same-as-sides');
+    expect(c.frame.orientation).toBe('minor');
+
+    c.style = 'moderna';
+    applyStylePreset(c, catalog, true);
+    expect(c.barProfileId).toBe('r-1q');
+    expect(c.frame.profileId).toBe('c-40x20');
+  });
+
+  it('repone perfiles por defecto si un catálogo viejo no tiene el estilo', () => {
+    const old = { round: [], rect: [] };
+    const fixed = ensureCatalogDefaults(old);
+    expect(barProfilesForStyle(fixed, 'moderna').length).toBeGreaterThan(0);
+    expect(barProfilesForStyle(fixed, 'clasica').length).toBeGreaterThan(0);
+    expect(frameProfilesForStyle(fixed, 'moderna').length).toBeGreaterThan(0);
+    expect(frameProfilesForStyle(fixed, 'clasica').length).toBeGreaterThan(0);
+  });
+});
+
 describe('Estilo clásico (ventana)', () => {
   function classicCfg(): ProjectConfig {
-    const c = makeConfig({ round: 'rm-12', frame: 'pl-25x5' });
+    const c = makeConfig({ bar: 'qm-12', frame: 'pl-32x5' });
     c.style = 'clasica';
     c.productKind = 'ventana';
-    c.frame.orientation = 'major';
+    c.frame.orientation = 'minor';
     c.bars.ends = 'inserted';
     return c;
   }
   const d = computeDesign(classicCfg(), catalog);
-  it('no tiene errores y no emite bar-wider-than-frame', () => {
+
+  it('no tiene errores y usa barras macizas cuadradas', () => {
     expect(d.issues.filter((i) => i.level === 'error')).toEqual([]);
-    expect(d.issues.some((i) => i.code === 'bar-wider-than-frame')).toBe(false);
+    expect(d.issues.filter((i) => i.level === 'warning')).toEqual([]);
+    expect(d.derived!.barShape).toBe('square');
+    expect(d.derived!.barDirection).toBe('vertical');
+    expect(d.derived!.barSizeMm).toBe(12.7);
+    expect(d.derived!.barsInserted).toBe(true);
+    expect(d.derived!.barPenetrationMm).toBe(3.76);
+    expect(d.derived!.barHoleMm).toBe(13.7);
   });
-  it('despiece con planchuela y hierro macizo', () => {
+
+  it('distribuye los barrotes verticales sobre el ancho interior', () => {
+    expect(d.derived!.innerWidthMm).toBe(1490.48);
+    expect(d.derived!.innerHeightMm).toBe(590.48);
+    expect(d.distribution!.direction).toBe('vertical');
+    expect(d.distribution!.spanMm).toBe(1490.48);
+    expect(d.distribution!.count).toBe(13);
+    near(d.distribution!.gapMm, (1490.48 - 13 * 12.7) / 14);
+    const { positionsMm, gapMm, count } = d.distribution!;
+    near(positionsMm[0] - 4.76, gapMm);
+    for (let i = 1; i < count; i++) near(positionsMm[i] - (positionsMm[i - 1] + 12.7), gapMm);
+    near(1495.24 - (positionsMm[count - 1] + 12.7), gapMm);
+  });
+
+  it('despiece con planchuela y barras macizas cuadradas', () => {
     const planch = d.pieces.filter((p) => p.profileLabel.startsWith('Planchuela'));
-    const macizo = d.pieces.filter((p) => p.profileLabel.startsWith('Hierro macizo'));
-    expect(planch.length).toBeGreaterThan(0);
-    expect(macizo.length).toBeGreaterThan(0);
+    const macizo = d.pieces.filter((p) => p.profileLabel.startsWith('Hierro macizo cuadrado'));
+    expect(planch.length).toBe(5); // MS, MI, LI, LD, RC
+    expect(macizo.length).toBe(26); // 13 barrotes en dos tramos
     expect(d.pieces.some((p) => p.type === 'bar')).toBe(true);
+    expect(lens(d, 'MS')).toEqual([1500]);
+    expect(lens(d, 'MI')).toEqual([1500]);
+    expect(lens(d, 'LI')).toEqual([590.5]);
+    expect(lens(d, 'LD')).toEqual([590.5]);
+    expect(lens(d, 'RC')).toEqual([1490.5]);
+    near(d.pieces.find((p) => p.id === 'B01-A')!.lengthMm, 296.6, 0.05);
   });
+
+  it('la planchuela plana deja entrar el agujero; girada avisa', () => {
+    const ok = computeDesign(classicCfg(), catalog);
+    expect(ok.issues.some((i) => i.code === 'hole-too-big')).toBe(false);
+
+    const cfg = classicCfg();
+    cfg.frame.orientation = 'major';
+    const bad = computeDesign(cfg, catalog);
+    expect(bad.issues.some((i) => i.code === 'hole-too-big')).toBe(true);
+  });
+
+  it('barrotes pasantes por el travesaño y sin travesaño', () => {
+    const throughCfg = classicCfg();
+    throughCfg.bars.crossing = 'through';
+    const through = computeDesign(throughCfg, catalog);
+    expect(through.pieces.filter((p) => p.type === 'bar').map((p) => p.lengthMm)).toEqual(Array(13).fill(598));
+    expect(through.pieces.find((p) => p.id === 'RC')!.notes).toMatch(/13 agujeros/);
+
+    const simpleCfg = classicCfg();
+    simpleCfg.reinforcement.enabled = false;
+    const simple = computeDesign(simpleCfg, catalog);
+    expect(simple.pieces.filter((p) => p.type === 'bar').map((p) => p.lengthMm)).toEqual(Array(13).fill(598));
+    expect(simple.pieces.some((p) => p.id === 'RC')).toBe(false);
+  });
+
+  it('rechaza barrotes redondos y marcos huecos en la reja clásica', () => {
+    const withRound = classicCfg();
+    withRound.barProfileId = 'r-1q';
+    expect(computeWindowClasica(withRound, catalog).issues.some((i) => i.code === 'bar-profile')).toBe(true);
+
+    const withTube = classicCfg();
+    withTube.frame.profileId = 'c-40x20';
+    expect(computeWindowClasica(withTube, catalog).issues.some((i) => i.code === 'frame-profile')).toBe(true);
+  });
+
   it('producto no implementado no genera piezas', () => {
     const c = classicCfg();
     c.productKind = 'puerta-abrir';
     const dd = computeDesign(c, catalog);
     expect(dd.pieces).toEqual([]);
     expect(dd.issues.some((i) => i.code === 'product-not-implemented')).toBe(true);
+  });
+});
+
+describe('Estilo moderno: solo caños', () => {
+  it('rechaza una barra maciza como barrote', () => {
+    const cfg = makeConfig({ bar: 'qm-12' });
+    const d = computeWindowModerna(cfg, catalog);
+    expect(d.issues.some((i) => i.code === 'bar-profile')).toBe(true);
+    expect(d.pieces).toEqual([]);
+  });
+
+  it('computeDesign corrige un perfil incompatible con el estilo', () => {
+    const d = computeDesign(makeConfig({ bar: 'qm-12' }), catalog);
+    expect(d.issues.filter((i) => i.level === 'error')).toEqual([]);
+    expect(d.derived!.barShape).toBe('round');
   });
 });

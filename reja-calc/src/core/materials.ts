@@ -41,7 +41,7 @@ export function computeMaterials(plan: CuttingPlan): MaterialLine[] {
   });
 }
 
-/** Costo: Σ(caños nuevos × precio) + consumibles. Sin precios no se inventa nada. */
+/** Costo: Σ(barras nuevas × precio) + consumibles. Sin precios no se inventa nada. */
 export function computeCosts(materials: MaterialLine[], c: CostsConfig): CostResult {
   const lines = materials.map((m) => {
     const price = c.pricePerBar[m.sectionKey];

@@ -1,5 +1,6 @@
-import { groupPieces, PIECE_TYPE_LABEL, STRUCTURAL_DISCLAIMER } from '../core/geometry';
-import { fmtCm, fmtMm, fmtMoney, fmtPct } from '../core/format';
+import { groupPieces, holeSizeLabel, PIECE_TYPE_LABEL, STRUCTURAL_DISCLAIMER } from '../core/geometry';
+import { fmtCm, fmtMm, fmtMoney, fmtNum, fmtPct } from '../core/format';
+import { sectionUnit } from '../core/profiles';
 import type { BudgetResult } from '../core/budget';
 import type { ObraResult, RejaResult } from '../core/obra';
 import type { Obra } from '../core/types';
@@ -17,24 +18,27 @@ function RejaBlock({ r }: { r: RejaResult }) {
   const barLabel = design.pieces.find((p) => p.type === 'bar')?.profileLabel ?? '';
   const W = config.window.widthMm;
   const H = config.window.heightMm;
+  const classic = config.style === 'clasica';
   return (
     <section className="ws-reja">
       <h2>{reja.name}</h2>
       <p className="ws-dim">Reja terminada: <b>{fmtMm(W)} × {fmtMm(H)}</b> ({fmtCm(W)} × {fmtCm(H)}) — medidas exteriores</p>
       <table className="ws-table">
         <tbody>
-          <tr><th>Marco</th><td>{dv.horizontalRound
-            ? `Laterales: ${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista · MS/MI: ${horizontalLabel}, Ø${fmtMm(dv.frameHorizontalMm)} a la vista, alojados con el borde del agujero a ${fmtMm(dv.horizontalEdgeMm)} mm del extremo`
-            : `${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista`} · {dv.horizontalRound || config.frame.assembly === 'vertical-full' ? 'laterales completos, tramos horizontales entre ellos' : 'tramos horizontales completos, laterales entre ellos'}</td></tr>
-          <tr><th>Refuerzo central</th><td>{dv.withReinforcement
-            ? `${reinfLabel}, centrado a ${fmtMm(W / 2)} · ${config.bars.crossing === 'split' ? 'barrotes en dos tramos' : 'barrotes pasantes (agujeros en el refuerzo)'}${dv.horizontalRound ? ' · tramo completo igual que los laterales, con agujeros para MS/MI' : ''}`
-            : 'No lleva: barrotes continuos de lateral a lateral'}</td></tr>
-          <tr><th>Barrotes</th><td>{barLabel} · {design.distribution.count} barrotes · separación libre {fmtMm(Math.round(design.distribution.gapMm * 10) / 10)}</td></tr>
-          <tr><th>Extremos de los barrotes</th><td>{dv.barsInLateral
-            ? `Entran ${fmtMm(dv.lateralPenetrationMm)} en un agujero Ø${fmtMm(dv.lateralHoleMm)} de cada lateral y se frenan a ${fmtMm(config.fabrication.socketSetbackMm)} de la cara exterior (agujero oculto; el barrote queda centrado y soldado)`
+          <tr><th>Marco</th><td>{classic
+            ? `${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista (${fmtMm(dv.frameDepthMm)} hacia afuera) · los cuatro tramos con la misma planchuela · ${config.frame.assembly === 'vertical-full' ? 'laterales completos, tramos horizontales entre ellos' : 'tramos horizontales completos, laterales entre ellos'}`
+            : dv.horizontalRound
+              ? `Laterales: ${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista · MS/MI: ${horizontalLabel}, Ø${fmtMm(dv.frameHorizontalMm)} a la vista, alojados con el borde del agujero a ${fmtMm(dv.horizontalEdgeMm)} mm del extremo · laterales completos, tramos horizontales entre ellos`
+              : `${sideLabel}, ${fmtMm(dv.frameInPlaneMm)} a la vista · ${config.frame.assembly === 'vertical-full' ? 'laterales completos, tramos horizontales entre ellos' : 'tramos horizontales completos, laterales entre ellos'}`}</td></tr>
+          <tr><th>{classic ? 'Travesaño central' : 'Refuerzo central'}</th><td>{dv.withReinforcement
+            ? `${reinfLabel}, ${classic ? `centrado a ${fmtMm(H / 2)} del borde superior` : `centrado a ${fmtMm(W / 2)}`} · ${config.bars.crossing === 'split' ? 'barrotes en dos tramos' : 'barrotes pasantes (agujeros en el refuerzo)'}${dv.horizontalRound ? ' · tramo completo igual que los laterales, con agujeros para MS/MI' : ''}`
+            : `No lleva: barrotes continuos ${classic ? 'de la planchuela superior a la inferior' : 'de lateral a lateral'}`}</td></tr>
+          <tr><th>Barrotes</th><td>{barLabel} · {design.distribution.count} barrotes {dv.barDirection === 'vertical' ? 'verticales' : 'horizontales'} · separación libre {fmtMm(Math.round(design.distribution.gapMm * 10) / 10)}</td></tr>
+          <tr><th>Extremos de los barrotes</th><td>{dv.barsInserted
+            ? `Entran ${fmtMm(dv.barPenetrationMm)} en un agujero de ${holeSizeLabel(dv.barHoleMm, dv.barShape)} de ${classic ? 'cada planchuela horizontal' : 'cada lateral'} y se frenan a ${fmtMm(config.fabrication.socketSetbackMm)} de la cara exterior (${classic ? 'punta embutida y soldada' : 'agujero oculto; el barrote queda centrado y soldado'})`
             : 'A tope contra la cara interior de los laterales'}</td></tr>
           {dv.horizontalRound && (
-            <tr><th>Extremos de MS/MI</th><td>Alojados {fmtMm(dv.lateralPenetrationMm)} en un agujero Ø{fmtMm(dv.lateralHoleMm)} de cada lateral, con el borde del agujero a {fmtMm(dv.horizontalEdgeMm)} mm del extremo y la punta frenada a {fmtMm(config.fabrication.socketSetbackMm)} de la cara exterior</td></tr>
+            <tr><th>Extremos de MS/MI</th><td>Alojados {fmtMm(dv.barPenetrationMm)} en un agujero de {holeSizeLabel(dv.barHoleMm, dv.barShape)} de cada lateral, con el borde del agujero a {fmtMm(dv.horizontalEdgeMm)} mm del extremo y la punta frenada a {fmtMm(config.fabrication.socketSetbackMm)} de la cara exterior</td></tr>
           )}
           <tr><th>Vano interior</th><td>{fmtMm(dv.innerWidthMm)} × {fmtMm(dv.innerHeightMm)}</td></tr>
           <tr><th>Disco de corte</th><td>{fmtMm(config.fabrication.kerfMm)} · holgura por unión: {fmtMm(config.fabrication.jointGapMm)}</td></tr>
@@ -59,8 +63,8 @@ function RejaBlock({ r }: { r: RejaResult }) {
               <td>{g.ids.length > 3 ? `${g.ids[0]} … ${g.ids[g.ids.length - 1]}` : g.ids.join(', ')}</td>
               <td>{PIECE_TYPE_LABEL[g.type]}</td>
               <td>{g.profileLabel}</td>
-              <td className="num"><b>{Math.round(g.lengthMm * 10) / 10}</b></td>
-              <td className="num">{Math.round(g.lengthMm) / 10}</td>
+              <td className="num"><b>{fmtNum(g.lengthMm)}</b></td>
+              <td className="num">{fmtNum(g.lengthMm / 10)}</td>
             </tr>
           ))}
         </tbody>
@@ -78,20 +82,22 @@ export function ObraWorksheet({ obra, result, budget }: { obra: Obra; result: Ob
 
       {result.valid.map((r) => <RejaBlock key={r.reja.id} r={r} />)}
 
-      <h2 className="ws-page-break">Qué sale de cada caño (obra)</h2>
+      <h2 className="ws-page-break">Qué sale de cada perfil (obra)</h2>
       <CutLegend />
-      {result.plan?.sections.map((s) => (
+      {result.plan?.sections.map((s) => {
+        const unit = sectionUnit(s.sectionKey);
+        return (
         <div className="ws-plan" key={s.sectionKey}>
-          <h3>{s.profileLabel} — comprar {s.newBarsCount} {s.newBarsCount === 1 ? 'caño' : 'caños'} de {fmtMm(s.stockLengthMm)}</h3>
+          <h3>{s.profileLabel} — comprar {s.newBarsCount} {s.newBarsCount === 1 ? unit : (unit === 'barra' ? 'barras' : 'caños')} de {fmtMm(s.stockLengthMm)}</h3>
           {s.bins.map((b) => (
             <div className="ws-bin" key={`${b.source.kind}${b.index}`}>
               <p className="ws-bin-head">
-                <b>{binName(b)}</b> — {fmtPct(b.piecesLengthMm / b.source.lengthMm)} en piezas
+                <b>{binName(b, unit)}</b> — {fmtPct(b.piecesLengthMm / b.source.lengthMm)} en piezas
                 {b.source.kind === 'offcut' && ` · de inventario: ${b.source.origin} · ${fmtMm(b.source.lengthMm)}`}
               </p>
-              <BinBar bin={b} />
+              <BinBar bin={b} unit={unit} />
               <p className="ws-bin-items">
-                Piezas: {b.items.map((i) => `${i.localId ?? i.pieceId} (${Math.round(i.lengthMm * 10) / 10})`).join(' · ')}
+                Piezas: {b.items.map((i) => `${i.localId ?? i.pieceId} (${fmtNum(i.lengthMm)})`).join(' · ')}
               </p>
               <p className="ws-bin-loss">
                 Pérdidas por disco: <b>{fmtMm(b.kerfLossMm)}</b>
@@ -102,7 +108,8 @@ export function ObraWorksheet({ obra, result, budget }: { obra: Obra; result: Ob
             </div>
           ))}
         </div>
-      ))}
+        );
+      })}
 
       <h2>Materiales a comprar (obra)</h2>
       <ul>

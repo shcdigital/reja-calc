@@ -3,7 +3,8 @@
  * Funciones puras (sin DOM ni librerías) para poder probarlas.
  */
 import { groupPieces, PIECE_TYPE_LABEL, STRUCTURAL_DISCLAIMER } from './geometry';
-import { fmtInt, fmtMeters, fmtMm, fmtMoney, fmtPct } from './format';
+import { fmtInt, fmtMeters, fmtMm, fmtMoney, fmtNum, fmtPct } from './format';
+import { sectionUnit } from './profiles';
 import type { BudgetResult } from './budget';
 import type { ObraResult } from './obra';
 import type { Obra } from './types';
@@ -95,7 +96,7 @@ export function buildObraDocument(obra: Obra, result: ObraResult, budget: Budget
     if (d.derived && d.distribution) {
       lines.push({
         kind: 'text',
-        text: `Marco a la vista ${fmtMm(d.derived.frameInPlaneMm)}${d.derived.horizontalRound ? ` (MS/MI de caño redondo Ø${fmtMm(d.derived.frameHorizontalMm)}, agujeros a ${fmtMm(d.derived.horizontalEdgeMm)} mm del borde)` : ''} · vano ${fmtMm(d.derived.innerWidthMm)} × ${fmtMm(d.derived.innerHeightMm)} · ${d.distribution.count} barrotes (separación ${fmtMm(Math.round(d.distribution.gapMm * 10) / 10)})`,
+        text: `Marco a la vista ${fmtMm(d.derived.frameInPlaneMm)}${d.derived.horizontalRound ? ` (MS/MI de caño redondo Ø${fmtMm(d.derived.frameHorizontalMm)}, agujeros a ${fmtMm(d.derived.horizontalEdgeMm)} mm del borde)` : ''} · vano ${fmtMm(d.derived.innerWidthMm)} × ${fmtMm(d.derived.innerHeightMm)} · ${d.distribution.count} barrotes ${d.derived.barDirection === 'vertical' ? 'verticales' : 'horizontales'} (separación ${fmtMm(Math.round(d.distribution.gapMm * 10) / 10)})`,
       });
     }
     lines.push({ kind: 'plano', text: `Plano de ${r.reja.name}`, rejaId: r.reja.id });
@@ -121,14 +122,15 @@ export function buildObraDocument(obra: Obra, result: ObraResult, budget: Budget
     lines.push(BREAK);
     lines.push({ kind: 'h2', text: 'Plan de cortes' });
     for (const s of result.plan.sections) {
+      const unit = sectionUnit(s.sectionKey);
       lines.push({
         kind: 'sub',
-        text: `${s.profileLabel} — comprar ${s.newBarsCount} caño(s) de ${fmtMm(s.stockLengthMm)}`,
+        text: `${s.profileLabel} — comprar ${s.newBarsCount} ${unit}(s) de ${fmtMm(s.stockLengthMm)}`,
       });
       for (const b of s.bins) {
-        const name = b.source.kind === 'new' ? `Caño ${b.index}` : `Sobrante ${b.index}`;
+        const name = b.source.kind === 'new' ? `${unit === 'barra' ? 'Barra' : 'Caño'} ${b.index}` : `Sobrante ${b.index}`;
         const items = b.items
-          .map((it) => `${it.localId ?? it.pieceId} (${Math.round(it.lengthMm * 10) / 10})`)
+          .map((it) => `${it.localId ?? it.pieceId} (${fmtNum(it.lengthMm)})`)
           .join(' · ');
         lines.push({
           kind: 'text',
@@ -147,7 +149,7 @@ export function buildObraDocument(obra: Obra, result: ObraResult, budget: Budget
   for (const m of result.materials) {
     lines.push({
       kind: 'text',
-      text: `${m.profileLabel}: ${m.newBarsCount} caño(s) de ${fmtMm(m.stockLengthMm)} · piezas ${fmtMeters(m.piecesLengthMm)} · aprovechamiento ${fmtPct(m.utilization)}`,
+      text: `${m.profileLabel}: ${m.newBarsCount} ${sectionUnit(m.sectionKey)}(s) de ${fmtMm(m.stockLengthMm)} · piezas ${fmtMeters(m.piecesLengthMm)} · aprovechamiento ${fmtPct(m.utilization)}`,
     });
   }
 
@@ -176,6 +178,6 @@ export function buildObraDocument(obra: Obra, result: ObraResult, budget: Budget
   lines.push({ kind: 'h2', text: 'Aviso' });
   lines.push({ kind: 'text', text: STRUCTURAL_DISCLAIMER });
   lines.push({ kind: 'text', text: `Rejas: ${dims(result)}` });
-  lines.push({ kind: 'text', text: `Total de caños a comprar: ${fmtInt(result.materials.reduce((a, m) => a + m.newBarsCount, 0))}` });
+  lines.push({ kind: 'text', text: `Total de barras a comprar: ${fmtInt(result.materials.reduce((a, m) => a + m.newBarsCount, 0))}` });
   return lines;
 }

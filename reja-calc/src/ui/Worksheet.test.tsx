@@ -38,6 +38,23 @@ describe('Hoja de taller (plan de cortes)', () => {
     expect(html).toContain('Piezas:');
   });
 
+  it('la hoja clásica describe planchuela y barra maciza cuadrada', () => {
+    const base = createObra();
+    const cfg = makeConfig({ bar: 'qm-12', frame: 'pl-32x5', style: 'clasica' });
+    cfg.frame.orientation = 'minor';
+    const reja = { id: 'R1', name: 'Reja clásica', config: cfg, labor: { mode: 'hours' as const, hours: 0, fixedAmount: 0 } };
+    const obra = { ...base, rejas: [reja], activeRejaId: 'R1' };
+    const result = computeObra(obra, catalog);
+    const html = renderToString(<ObraWorksheet obra={obra} result={result} budget={computeBudget(result, DEFAULT_BUDGET)} />);
+
+    expect(html).toContain('Planchuela 31,75 × 4,76 mm');
+    expect(html).toContain('Hierro macizo cuadrado 12,7 × 12,7 mm');
+    expect(html).toContain('barrotes');
+    expect(html).toContain('verticales');
+    expect(html).toContain('Barra comercial 1');
+    expect(html).toContain('agujero de 13,7 × 13,7 mm');
+  });
+
   it('aclara los laterales y los tramos redondos cuando MS/MI son de caño redondo', () => {
     const base = createObra();
     const reja = {

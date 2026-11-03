@@ -121,6 +121,17 @@ describe('Obra: persistencia y migración', () => {
     expect(parsed!.rejas[0].config.fabrication.horizontalEdgeMm).toBe(5);
   });
 
+  it('migra el nombre viejo roundProfileId al actual barProfileId', () => {
+    const obra = createObra();
+    const cfg = structuredClone(obra.rejas[0].config) as unknown as Record<string, unknown>;
+    cfg.roundProfileId = cfg.barProfileId;
+    delete cfg.barProfileId;
+    const parsed = parseObra(JSON.stringify({ ...obra, rejas: [{ ...obra.rejas[0], config: cfg }] }));
+    expect(parsed).not.toBeNull();
+    expect(parsed!.rejas[0].config.barProfileId).toBe(DEFAULT_CONFIG.barProfileId);
+    expect((parsed!.rejas[0].config as unknown as Record<string, unknown>).roundProfileId).toBeUndefined();
+  });
+
   it('una obra con MS/MI redondos y armado horizontal se normaliza a laterales completos', () => {
     const obra = createObra();
     obra.rejas[0].config.frame.horizontalProfile = 'round';
@@ -237,7 +248,7 @@ describe('Obra: plan unificado', () => {
   it('aplica el plan unificado al inventario una sola vez', () => {
     const obra = obraWith([{}, {}]);
     obra.cutting = { ...obra.cutting, reuseOffcuts: true };
-    const roundKey = sectionKey(findRound(catalog, DEFAULT_CONFIG.roundProfileId)!);
+    const roundKey = sectionKey(findRound(catalog, DEFAULT_CONFIG.barProfileId)!);
     const used = { id: 'o1', sectionKey: roundKey, profileLabel: 'x', lengthMm: 1500, origin: 'prueba', createdAt: '2026-01-01' };
     const r = computeObra(obra, catalog, [used]);
     let n = 0;
@@ -252,16 +263,18 @@ describe('Persistencia: estilo clásico round-trip', () => {
   it('guarda y restaura una reja clásica', () => {
     const store = memStore();
     const obra = createObra();
-    const cfg = makeConfig({ round: 'rm-12', frame: 'pl-25x5' });
+    const cfg = makeConfig({ bar: 'qm-12', frame: 'pl-32x5' });
     cfg.style = 'clasica';
     cfg.productKind = 'ventana';
-    cfg.frame.orientation = 'major';
+    cfg.frame.orientation = 'minor';
     obra.rejas[0].config = cfg;
     saveObra(store, obra);
     const loaded = loadObra(store);
     expect(loaded.rejas[0].config.style).toBe('clasica');
-    expect(loaded.rejas[0].config.roundProfileId).toBe('rm-12');
-    expect(loaded.rejas[0].config.frame.profileId).toBe('pl-25x5');
+    expect(loaded.rejas[0].config.barProfileId).toBe('qm-12');
+    expect(loaded.rejas[0].config.frame.profileId).toBe('pl-32x5');
+    expect(loaded.rejas[0].config.bars.ends).toBe('inserted');
+    expect(loaded.rejas[0].config.frame.horizontalProfile).toBe('same-as-sides');
   });
 });
 

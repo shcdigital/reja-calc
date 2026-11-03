@@ -21,7 +21,7 @@
  *  - Equivalencia usada para empaquetar: tamaño de ítem = p + k y capacidad = T + k.
  *    (Σ(p+k) ≤ T+k  ⇔  Σp + (n−1)·k ≤ T.)
  *
- * Objetivos, en orden: (1) menos caños nuevos, (2) menos desperdicio, (3) menos sobrantes
+ * Objetivos, en orden: (1) menos barras nuevas, (2) menos desperdicio, (3) menos sobrantes
  * chicos inutilizables (se concentran los sobrantes en pocos tramos largos).
  */
 
@@ -272,7 +272,7 @@ const byLengthDescThenId = (a: Item, b: Item) =>
   b.lenU - a.lenU || a.item.pieceId.localeCompare(b.item.pieceId, 'es', { numeric: true });
 
 /**
- * Empaqueta las piezas de UNA sección. Lanza Error si alguna pieza no cabe en un caño nuevo.
+ * Empaqueta las piezas de UNA sección. Lanza Error si alguna pieza no cabe en una barra nueva.
  */
 export function packSection(cutItems: CutItem[], opts: PackOptions): PackResult {
   const k = toU(opts.kerfMm);
@@ -289,7 +289,7 @@ export function packSection(cutItems: CutItem[], opts: PackOptions): PackResult 
     if (it.lenU <= 0) throw new Error(`La pieza ${it.item.pieceId} tiene largo cero o negativo.`);
     if (it.lenU > usableNew) {
       throw new Error(
-        `La pieza ${it.item.pieceId} (${fmtMm(it.item.lengthMm)}) supera el largo utilizable del caño comercial (${fmtMm(fromU(usableNew))}).`,
+        `La pieza ${it.item.pieceId} (${fmtMm(it.item.lengthMm)}) supera el largo utilizable del material comercial (${fmtMm(fromU(usableNew))}).`,
       );
     }
   }
@@ -323,7 +323,7 @@ export function packSection(cutItems: CutItem[], opts: PackOptions): PackResult 
   // 2) Caños comerciales nuevos
   let lowerBound = 0;
   let proven = true;
-  let method = 'Sin piezas para cortar de caños nuevos';
+  let method = 'Sin piezas para cortar de material nuevo';
 
   if (remaining.length > 0) {
     const lens = remaining.map((r) => r.lenU);
@@ -371,7 +371,7 @@ export function packSection(cutItems: CutItem[], opts: PackOptions): PackResult 
     }
   }
 
-  // Orden de presentación: sobrantes primero, luego caños nuevos; numeración por tipo.
+  // Orden de presentación: sobrantes primero, luego barras nuevas; numeración por tipo.
   const ordered = [
     ...bins.filter((b) => b.source.kind === 'offcut'),
     ...bins.filter((b) => b.source.kind === 'new').sort(

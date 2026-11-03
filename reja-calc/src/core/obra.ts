@@ -8,7 +8,7 @@
  */
 import { computeCuttingPlan } from './cutting';
 import { computeMaterials } from './materials';
-import { DEFAULT_CONFIG } from './profiles';
+import { DEFAULT_CONFIG, resolveStyleConfig } from './profiles';
 import { computeDesign } from './geometry';
 import type {
   BudgetConfig,
@@ -209,15 +209,32 @@ function isValidObra(v: unknown): v is Obra {
   );
 }
 
+/** Migra el nombre viejo `roundProfileId` al actual `barProfileId`. */
+function migrateBarProfileId(saved: unknown): unknown {
+  if (!isObject(saved)) return saved;
+  const out = { ...saved };
+  if (out.barProfileId === undefined && typeof out.roundProfileId === 'string') {
+    out.barProfileId = out.roundProfileId;
+  }
+  delete out.roundProfileId;
+  return out;
+}
+
 /** Completa campos faltantes de una obra guardada con los valores por defecto. */
 function normalizeConfig(saved: unknown): ProjectConfig {
-  const config = deepFill(DEFAULT_CONFIG, saved) as ProjectConfig;
-  // Los MS/MI redondos se alojan en los laterales, que deben ser completos.
-  if (config.frame.horizontalProfile === 'round') config.frame.assembly = 'vertical-full';
+  const config = deepFill(DEFAULT_CONFIG, migrateBarProfileId(saved)) as ProjectConfig;
   // Estilo y tipo de producto: valores por defecto para configs guardadas por versiones anteriores.
   if (config.style !== 'moderna' && config.style !== 'clasica') config.style = 'moderna';
   const validProducts: ProjectConfig['productKind'][] = ['ventana', 'puerta-abrir', 'puerta-corrediza', 'porton-dos-hojas', 'porton-corredizo', 'frente'];
   if (!validProducts.includes(config.productKind)) config.productKind = 'ventana';
+  if (config.style === 'clasica') {
+    // La reja clásica siempre usa planchuelas en los cuatro tramos y barrotes insertados.
+    config.bars.ends = 'inserted';
+    config.frame.horizontalProfile = 'same-as-sides';
+  } else if (config.frame.horizontalProfile === 'round') {
+    // Los MS/MI redondos se alojan en los laterales, que deben ser completos.
+    config.frame.assembly = 'vertical-full';
+  }
   return config;
 }
 
@@ -379,7 +396,7 @@ export function buildRejaPlan(plan: CuttingPlan | null, rejaId: string): Cutting
  */
 export function computeObra(obra: Obra, catalog: Catalog, inventory: Offcut[] = []): ObraResult {
   const drafts = obra.rejas.map((reja) => {
-    const config = configWithCutting(reja.config, obra.cutting);
+    const config = resolveStyleConfig(configWithCutting(reja.config, obra.cutting), catalog);
     const design = computeDesign(config, catalog);
     const error = design.issues.some((i) => i.level === 'error') || design.pieces.length === 0;
     return { reja, config, design, error };

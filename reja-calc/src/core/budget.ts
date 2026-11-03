@@ -2,7 +2,7 @@
  * Presupuesto de la obra: materiales + consumibles + mano de obra.
  *
  * El total NO incluye margen de ganancia ni impuestos: es la suma de costos.
- *   materiales  = Σ (caños a comprar de la sección × precio por caño de la sección)
+ *   materiales  = Σ (barras a comprar de la sección × precio por barra de la sección)
  *   consumibles = discos + pintura + otros (una sola vez para toda la obra)
  *   mano de obra = Σ por reja (horas × valor hora  o  monto fijo)
  */
@@ -35,7 +35,7 @@ export interface BudgetResult {
   laborSubtotal: number;
   /** materiales + consumibles + mano de obra. */
   total: number;
-  /** Secciones con caños a comprar a las que les falta precio. */
+  /** Secciones con barras a comprar a las que les falta precio. */
   missingPrices: string[];
   /** Hay al menos un importe cargado (precio, consumible o mano de obra). */
   hasAnyValue: boolean;

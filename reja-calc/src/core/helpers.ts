@@ -3,7 +3,13 @@ import type { ProjectConfig } from './types';
 
 /** Utilidad de pruebas/uso programático: config por defecto con cambios parciales. */
 export function makeConfig(over: {
-  w?: number; h?: number; round?: string; assembly?: ProjectConfig['frame']['assembly'];
+  w?: number; h?: number;
+  /** Id del perfil de barrote (caño o barra maciza). */
+  bar?: string;
+  /** Alias histórico de `bar`. */
+  round?: string;
+  style?: ProjectConfig['style'];
+  assembly?: ProjectConfig['frame']['assembly'];
   horizontals?: ProjectConfig['frame']['horizontalProfile'];
   crossing?: ProjectConfig['bars']['crossing']; kerf?: number; frame?: string;
   mode?: 'auto' | 'manual'; manual?: number; gap?: number; minGap?: number; reuse?: boolean; jg?: number;
@@ -12,7 +18,9 @@ export function makeConfig(over: {
   const c: ProjectConfig = structuredClone(DEFAULT_CONFIG);
   if (over.w !== undefined) c.window.widthMm = over.w;
   if (over.h !== undefined) c.window.heightMm = over.h;
-  if (over.round) c.roundProfileId = over.round;
+  if (over.bar) c.barProfileId = over.bar;
+  if (over.round) c.barProfileId = over.round;
+  if (over.style) c.style = over.style;
   if (over.assembly) c.frame.assembly = over.assembly;
   if (over.horizontals) c.frame.horizontalProfile = over.horizontals;
   if (over.crossing) c.bars.crossing = over.crossing;

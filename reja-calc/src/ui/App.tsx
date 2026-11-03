@@ -2,16 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { computeBudget } from '../core/budget';
 import { buildShareSummary, obraFileName } from '../core/document';
 import { cutListCsv, download, downloadBlob, materialsCsv } from '../core/exporters';
-import { fmtInt, fmtMeters, fmtMm, fmtMoney, fmtPct } from '../core/format';
-import { STRUCTURAL_DISCLAIMER } from '../core/geometry';
+import { fmtInt, fmtMeters, fmtMm, fmtMoney, fmtNum, fmtPct } from '../core/format';
+import { barSizeLabel, holeSizeLabel, STRUCTURAL_DISCLAIMER } from '../core/geometry';
 import { applyPlanToInventory } from '../core/inventory';
 import {
   addReja, computeObra, configWithCutting, createObra, duplicateReja, makeId, removeReja, renameReja, selectReja,
   CATALOG_KEY, INVENTORY_KEY, UNIT_KEY,
 } from '../core/obra';
 import {
-  DEFAULT_CATALOG, depthDim, findRect, findRound, inPlaneDim, isValidRect,
-  isValidRound, profileLabel, recommendFrameProfile, sectionKey,
+  DEFAULT_CATALOG, applyStylePreset, barOptionLabel, barProfilesForStyle, barShape,
+  depthDim, ensureCatalogDefaults, findRect, findRound, frameProfilesForStyle,
+  inPlaneDim, isValidRect, isValidRound, profileLabel, recommendFrameProfile, sectionKey,
 } from '../core/profiles';
 import type {
   Catalog, Issue, LaborMode, ObraCuttingConfig, Offcut, Orientation, ProjectConfig, RejaLabor, RectProfile,
@@ -56,7 +57,10 @@ function OrientationSelect({ profile, value, onChange, label }: { profile: RectP
 
 export function App() {
   const [obra, setObra] = useObra();
-  const [catalog, setCatalog] = usePersistentState<Catalog>(CATALOG_KEY, DEFAULT_CATALOG, (s, i) => (s && typeof s === 'object' && Array.isArray((s as Catalog).round) && Array.isArray((s as Catalog).rect) ? (s as Catalog) : i));
+  const [catalog, setCatalog] = usePersistentState<Catalog>(CATALOG_KEY, DEFAULT_CATALOG, (s, i) => {
+    const valid = s && typeof s === 'object' && Array.isArray((s as Catalog).round) && Array.isArray((s as Catalog).rect);
+    return ensureCatalogDefaults(valid ? (s as Catalog) : i);
+  });
   const [inventory, setInventory] = usePersistentState<Offcut[]>(INVENTORY_KEY, [], (s) => (Array.isArray(s) ? (s as Offcut[]) : []));
   const [unit, setUnit] = usePersistentState<'mm' | 'cm'>(UNIT_KEY, 'mm');
   const [newOff, setNewOff] = useState<{ key: string; len: number }>({ key: '', len: 500 });
@@ -111,10 +115,12 @@ export function App() {
 
   const print = (area: Area) => { document.body.dataset.printing = area; window.print(); };
 
-  const round = findRound(catalog, config.roundProfileId);
+  const bar = findRound(catalog, config.barProfileId);
   const frameP = findRect(catalog, config.frame.profileId);
   const reinfP = config.reinforcement.sameAsFrame ? frameP : findRect(catalog, config.reinforcement.profileId);
-  const recommended = isValidRound(round) ? recommendFrameProfile(catalog, round) : undefined;
+  const recommended = isValidRound(bar) ? recommendFrameProfile(catalog, bar, config.style) : undefined;
+  const barOptions = barProfilesForStyle(catalog, config.style);
+  const frameOptions = frameProfilesForStyle(catalog, config.style);
   const allKeys = useMemo(() => [...catalog.round.filter(isValidRound), ...catalog.rect.filter(isValidRect)].map((p) => ({ key: sectionKey(p), label: profileLabel(p) })), [catalog]);
 
   const errors = design.issues.filter((i) => i.level === 'error');
@@ -165,8 +171,8 @@ export function App() {
     <div className="app">
       <header className="top" data-area="screen">
         <div className="brand">
-          <h1>Rejas de caño estructural</h1>
-          <p className="muted">Varias rejas por obra, con despiece, plan de cortes en caños de {fmtMm(obra.cutting.stockLengthMm)}, materiales y presupuesto. Todo se calcula en el navegador.</p>
+          <h1>Calculadora de rejas</h1>
+          <p className="muted">Rejas modernas (caño redondo) y clásicas (planchuela y barra maciza cuadrada), con despiece, plan de cortes en barras de {fmtMm(obra.cutting.stockLengthMm)}, materiales y presupuesto. Todo se calcula en el navegador.</p>
           <label className="field job">
             <span className="field-label">Nombre de la obra</span>
             <input value={obra.name} onChange={(e) => setObra((p) => ({ ...p, name: e.target.value }))} placeholder="Ej.: Ventana cocina — García" />
@@ -226,49 +232,60 @@ export function App() {
               <span className="field-label">Estilo de reja</span>
               <select value={config.style} onChange={(e) => setConfig((c) => {
                 c.style = e.target.value as ProjectConfig['style'];
-                if (c.style === 'clasica') {
-                  const firstSolidRect = catalog.rect.find((p) => p.solid && isValidRect(p));
-                  if (firstSolidRect && !catalog.rect.find((p) => p.id === c.frame.profileId && p.solid)) c.frame.profileId = firstSolidRect.id;
-                  const firstSolidSquare = catalog.round.find((p) => p.solid && p.square && isValidRound(p));
-                  const firstSolidRound = catalog.round.find((p) => p.solid && isValidRound(p));
-                  if (firstSolidSquare && !catalog.round.find((p) => p.id === c.roundProfileId && p.solid && p.square)) c.roundProfileId = firstSolidSquare.id;
-                  else if (firstSolidRound && !catalog.round.find((p) => p.id === c.roundProfileId && p.solid)) c.roundProfileId = firstSolidRound.id;
-                  c.frame.horizontalProfile = 'same-as-sides';
-                }
+                applyStylePreset(c, catalog, true);
               })}>
-                <option value="moderna">Moderna (caño estructural)</option>
-                <option value="clasica">Clásica (planchuela y hierro macizo)</option>
+                <option value="moderna">Moderna (caño redondo)</option>
+                <option value="clasica">Clásica / standard (planchuela y barra maciza cuadrada)</option>
               </select>
             </label>
             <p className="muted small">{config.style === 'clasica'
-              ? 'Reja clásica: marco de planchuela con agujeros y barrotes de hierro macizo insertados en los laterales.'
+              ? 'Reja clásica: marco de planchuela con agujeros y barrotes verticales de hierro macizo cuadrado, insertados en las planchuelas superior e inferior.'
               : 'Reja moderna: marco de caño estructural y barrotes de caño redondo.'}</p>
             <label className="field">
-              <span className="field-label">Caño redondo de los barrotes</span>
-              <select value={config.roundProfileId} onChange={(e) => setConfig((c) => { c.roundProfileId = e.target.value; })}>
-                {catalog.round.filter((p) => config.style === 'clasica' ? !!p.solid : !p.solid).map((p) => <option key={p.id} value={p.id}>{p.label} (Ø{p.odMm} × {p.thicknessMm})</option>)}
+              <span className="field-label">{config.style === 'clasica' ? 'Barra maciza cuadrada de los barrotes' : 'Caño redondo de los barrotes'}</span>
+              <select value={config.barProfileId} onChange={(e) => setConfig((c) => { c.barProfileId = e.target.value; })}>
+                {barOptions.length === 0
+                  ? <option value={config.barProfileId}>No hay perfiles compatibles con este estilo</option>
+                  : barOptions.map((p) => <option key={p.id} value={p.id}>{barOptionLabel(p)}</option>)}
               </select>
             </label>
             <label className="field">
-              <span className="field-label">Perfil rectangular del marco (laterales)</span>
+              <span className="field-label">{config.style === 'clasica' ? 'Planchuela del marco (todos los tramos)' : 'Perfil rectangular del marco (laterales)'}</span>
               <select value={config.frame.profileId} onChange={(e) => setConfig((c) => { c.frame.profileId = e.target.value; })}>
-                {catalog.rect.filter((p) => config.style === 'clasica' ? !!p.solid : !p.solid).map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                {frameOptions.length === 0
+                  ? <option value={config.frame.profileId}>No hay perfiles compatibles con este estilo</option>
+                  : frameOptions.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
             </label>
-            <OrientationSelect label="Orientación del perfil del marco" profile={frameP} value={config.frame.orientation} onChange={(o) => setConfig((c) => { c.frame.orientation = o; })} />
-            <label className="field">
-              <span className="field-label">Tramos superior e inferior (MS / MI)</span>
-              <select value={config.frame.horizontalProfile} onChange={(e) => setConfig((c) => { c.frame.horizontalProfile = e.target.value as ProjectConfig['frame']['horizontalProfile']; if (c.frame.horizontalProfile === 'round') c.frame.assembly = 'vertical-full'; })}>
-                <option value="same-as-sides">Mismo perfil que los laterales (rectangular)</option>
-                <option value="round">Caño redondo de los barrotes{round ? ` (Ø${round.odMm} mm)` : ''}</option>
-              </select>
-            </label>
-            <p className="muted small">{config.frame.horizontalProfile === 'round'
-              ? 'Los tramos superior e inferior son de caño redondo y se alojan en agujeros de los laterales, con los laterales completos. El alto útil descuenta el diámetro y el margen de 5 mm al borde.'
-              : 'Los cuatro tramos del marco usan el mismo perfil rectangular.'}</p>
+            <OrientationSelect
+              label={config.style === 'clasica' ? 'Orientación de la planchuela' : 'Orientación del perfil del marco'}
+              profile={frameP}
+              value={config.frame.orientation}
+              onChange={(o) => setConfig((c) => { c.frame.orientation = o; })}
+            />
+            {config.style === 'clasica' && (
+              <p className="muted small">Para planchuela perforada, el lado angosto va a la vista y el ancho queda hacia afuera: es el lado donde entra el agujero cuadrado del barrote.</p>
+            )}
+            {config.style === 'moderna' && (
+              <>
+                <label className="field">
+                  <span className="field-label">Tramos superior e inferior (MS / MI)</span>
+                  <select value={config.frame.horizontalProfile} onChange={(e) => setConfig((c) => { c.frame.horizontalProfile = e.target.value as ProjectConfig['frame']['horizontalProfile']; if (c.frame.horizontalProfile === 'round') c.frame.assembly = 'vertical-full'; })}>
+                    <option value="same-as-sides">Mismo perfil que los laterales (rectangular)</option>
+                    <option value="round">Caño redondo de los barrotes{bar ? ` (Ø${fmtNum(bar.odMm)} mm)` : ''}</option>
+                  </select>
+                </label>
+                <p className="muted small">{config.frame.horizontalProfile === 'round'
+                  ? 'Los tramos superior e inferior son de caño redondo y se alojan en agujeros de los laterales, con los laterales completos. El alto útil descuenta el diámetro y el margen de 5 mm al borde.'
+                  : 'Los cuatro tramos del marco usan el mismo perfil rectangular.'}</p>
+              </>
+            )}
+            {config.style === 'clasica' && (
+              <p className="muted small">Los cuatro tramos del marco son de la misma planchuela. Los barrotes siempre se alojan en agujeros de las planchuelas superior e inferior.</p>
+            )}
             {recommended && (
               <p className="hint">
-                Recomendado para Ø{round!.odMm} mm: <b>{recommended.profile.label}</b>, con el lado de {Math.max(recommended.profile.aMm, recommended.profile.bMm)} mm hacia afuera (el barrote apoya completo).{' '}
+                Recomendado para {bar ? barSizeLabel(bar.odMm, barShape(bar)) : 'este barrote'}: <b>{recommended.profile.label}</b>, con el lado de {fmtNum(Math.max(recommended.profile.aMm, recommended.profile.bMm))} mm hacia afuera.{' '}
                 {(config.frame.profileId !== recommended.profile.id || config.frame.orientation !== recommended.orientation) && (
                   <button type="button" className="link" onClick={() => setConfig((c) => { c.frame.profileId = recommended.profile.id; c.frame.orientation = recommended.orientation; })}>Usar recomendado</button>
                 )}
@@ -276,23 +293,29 @@ export function App() {
             )}
             <label className="check">
               <input type="checkbox" checked={config.reinforcement.enabled} onChange={(e) => setConfig((c) => { c.reinforcement.enabled = e.target.checked; })} />
-              Lleva refuerzo central (parante vertical al medio)
+              {config.style === 'clasica'
+                ? 'Lleva travesaño horizontal al medio'
+                : 'Lleva refuerzo central (parante vertical al medio)'}
             </label>
             {config.reinforcement.enabled && (
               <>
                 <label className="check">
                   <input type="checkbox" checked={config.reinforcement.sameAsFrame} onChange={(e) => setConfig((c) => { c.reinforcement.sameAsFrame = e.target.checked; })} />
-                  Con el mismo perfil rectangular que los laterales del marco
+                  {config.style === 'clasica'
+                    ? 'Con la misma planchuela que el marco'
+                    : 'Con el mismo perfil rectangular que los laterales del marco'}
                 </label>
                 {!config.reinforcement.sameAsFrame && (
                   <>
                     <label className="field">
-                      <span className="field-label">Perfil del refuerzo central</span>
+                      <span className="field-label">{config.style === 'clasica' ? 'Planchuela del travesaño central' : 'Perfil del refuerzo central'}</span>
                       <select value={config.reinforcement.profileId} onChange={(e) => setConfig((c) => { c.reinforcement.profileId = e.target.value; })}>
-                        {catalog.rect.filter((p) => config.style === 'clasica' ? !!p.solid : !p.solid).map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        {frameOptions.length === 0
+                          ? <option value={config.reinforcement.profileId}>No hay perfiles compatibles</option>
+                          : frameOptions.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                       </select>
                     </label>
-                    <OrientationSelect label="Orientación del refuerzo" profile={reinfP} value={config.reinforcement.orientation} onChange={(o) => setConfig((c) => { c.reinforcement.orientation = o; })} />
+                    <OrientationSelect label={config.style === 'clasica' ? 'Orientación del travesaño' : 'Orientación del refuerzo'} profile={reinfP} value={config.reinforcement.orientation} onChange={(o) => setConfig((c) => { c.reinforcement.orientation = o; })} />
                   </>
                 )}
               </>
@@ -303,28 +326,39 @@ export function App() {
               {catalog.round.map((p, i) => (
                 <div className="row" key={p.id}>
                   <label className="field"><span className="field-label">Nombre</span><input value={p.label} onChange={(e) => setCat((c) => { c.round[i].label = e.target.value; })} /></label>
-                  <NumField label="Ø exterior" suffix="mm" value={p.odMm} min={0.01} onChange={(v) => setCat((c) => { c.round[i].odMm = v; })} />
-                  <NumField label="Espesor" suffix="mm" value={p.thicknessMm} min={0.01} onChange={(v) => setCat((c) => { c.round[i].thicknessMm = v; })} />
+                  <NumField
+                    label={p.square ? 'Lado' : 'Ø exterior'}
+                    suffix="mm"
+                    value={p.odMm}
+                    min={0.01}
+                    onChange={(v) => setCat((c) => { c.round[i].odMm = v; if (c.round[i].solid) c.round[i].thicknessMm = c.round[i].square ? v / 2 : c.round[i].thicknessMm; })}
+                  />
+                  {!p.solid && (
+                    <NumField label="Espesor de pared" suffix="mm" value={p.thicknessMm} min={0.01} onChange={(v) => setCat((c) => { c.round[i].thicknessMm = v; })} />
+                  )}
                 </div>
               ))}
               {catalog.rect.map((p, i) => (
                 <div className="row" key={p.id}>
                   <label className="field"><span className="field-label">Nombre</span><input value={p.label} onChange={(e) => setCat((c) => { c.rect[i].label = e.target.value; })} /></label>
-                  <NumField label="Lado A" suffix="mm" value={p.aMm} min={0.01} onChange={(v) => setCat((c) => { c.rect[i].aMm = v; })} />
-                  <NumField label="Lado B" suffix="mm" value={p.bMm} min={0.01} onChange={(v) => setCat((c) => { c.rect[i].bMm = v; })} />
-                  <NumField label="Espesor" suffix="mm" value={p.thicknessMm} min={0.01} onChange={(v) => setCat((c) => { c.rect[i].thicknessMm = v; })} />
+                  <NumField label={p.solid ? 'Ancho' : 'Lado A'} suffix="mm" value={p.aMm} min={0.01} onChange={(v) => setCat((c) => { c.rect[i].aMm = v; })} />
+                  <NumField label={p.solid ? 'Espesor' : 'Lado B'} suffix="mm" value={p.bMm} min={0.01} onChange={(v) => setCat((c) => { c.rect[i].bMm = v; if (c.rect[i].solid) c.rect[i].thicknessMm = v; })} />
+                  {!p.solid && (
+                    <NumField label="Espesor de pared" suffix="mm" value={p.thicknessMm} min={0.01} onChange={(v) => setCat((c) => { c.rect[i].thicknessMm = v; })} />
+                  )}
                   <button type="button" className="ghost" disabled={catalog.rect.length <= 1 || p.id === config.frame.profileId || (config.reinforcement.enabled && !config.reinforcement.sameAsFrame && p.id === config.reinforcement.profileId)} onClick={() => setCat((c) => { c.rect.splice(i, 1); })}>Quitar</button>
                 </div>
               ))}
-              <button type="button" className="ghost" onClick={() => setCat((c) => { c.rect.push({ id: `c-${Date.now()}`, kind: 'rect', label: 'Rectangular nuevo', aMm: 50, bMm: 30, thicknessMm: 2 }); })}>Agregar perfil rectangular</button>
+              <button type="button" className="ghost" onClick={() => setCat((c) => { c.rect.push({ id: `c-${Date.now()}`, kind: 'rect', label: 'Caño rectangular nuevo', aMm: 50, bMm: 30, thicknessMm: 2 }); })}>Agregar caño rectangular</button>
+              <button type="button" className="ghost" onClick={() => setCat((c) => { c.rect.push({ id: `pl-${Date.now()}`, kind: 'rect', label: 'Planchuela nueva', aMm: 31.75, bMm: 4.76, thicknessMm: 4.76, solid: true }); })}>Agregar planchuela</button>
               <button type="button" className="ghost" onClick={() => { setCatalog(DEFAULT_CATALOG); }}>Restaurar medidas iniciales</button>
             </details>
           </section>
 
           {/* 3 */}
           <section className="card">
-            <h2>3. Barrotes horizontales</h2>
-            <p className="muted small">La separación libre se mide entre superficies de caños consecutivos, incluida la que queda contra el marco.</p>
+            <h2>3. Barrotes {config.style === 'clasica' ? 'verticales' : 'horizontales'}</h2>
+            <p className="muted small">La separación libre se mide entre superficies de barrotes consecutivos, incluida la que queda contra el marco.</p>
             <div className="row">
               <NumField label="Separación libre máxima deseada" suffix="mm" value={config.bars.desiredGapMm} min={0.1} onChange={(v) => setConfig((c) => { c.bars.desiredGapMm = v; })} />
               <NumField label="Separación libre mínima" suffix="mm" value={config.bars.minGapMm} min={0.1} onChange={(v) => setConfig((c) => { c.bars.minGapMm = v; })} />
@@ -340,7 +374,7 @@ export function App() {
               <div className="result-box">
                 <div><b>{dist.count}</b> barrotes</div>
                 <div>Separación libre resultante: <b>{fmtMm(Math.round(dist.gapMm * 10) / 10)}</b></div>
-                <div className="muted small">Alto interior {fmtMm(dist.innerHeightMm)} = {dist.count} × {fmtMm(design.derived!.barOdMm)} + {dist.count + 1} × separación</div>
+                <div className="muted small">{dist.direction === 'horizontal' ? 'Alto' : 'Ancho'} interior {fmtMm(dist.spanMm)} = {dist.count} × {fmtMm(design.derived!.barSizeMm)} + {dist.count + 1} × separación</div>
                 {dist.alternatives.length > 0 && (
                   <div className="alts">Alternativas: {dist.alternatives.map((a) => (
                     <button key={a.count} type="button" className="chip" onClick={() => setConfig((c) => { c.bars.mode = 'manual'; c.bars.manualCount = a.count; })}>{a.count} barrotes · {fmtMm(a.gapMm)}</button>
@@ -352,7 +386,7 @@ export function App() {
 
           {/* 4 */}
           <section className="card">
-            <h2>4. Armado y refuerzo</h2>
+            <h2>4. Armado y {config.style === 'clasica' ? 'travesaño' : 'refuerzo'}</h2>
             <fieldset>
               <legend>Armado del marco</legend>
               <label className="radio"><input type="radio" name="asm" disabled={config.frame.horizontalProfile === 'round'} checked={config.frame.assembly === 'horizontal-full' && config.frame.horizontalProfile !== 'round'} onChange={() => setConfig((c) => { c.frame.assembly = 'horizontal-full'; })} /> Tramos horizontales completos; los laterales van entre ellos</label>
@@ -363,35 +397,50 @@ export function App() {
             </fieldset>
             {config.reinforcement.enabled ? (
               <fieldset>
-                <legend>Barrotes y refuerzo central</legend>
-                <label className="radio"><input type="radio" name="crs" checked={config.bars.crossing === 'split'} onChange={() => setConfig((c) => { c.bars.crossing = 'split'; })} /> Dos tramos por barrote, que terminan contra el refuerzo</label>
-                <label className="radio"><input type="radio" name="crs" checked={config.bars.crossing === 'through'} onChange={() => setConfig((c) => { c.bars.crossing = 'through'; })} /> Barrote continuo que atraviesa el refuerzo (agujeros)</label>
+                <legend>{config.style === 'clasica' ? 'Barrotes y travesaño central' : 'Barrotes y refuerzo central'}</legend>
+                <label className="radio"><input type="radio" name="crs" checked={config.bars.crossing === 'split'} onChange={() => setConfig((c) => { c.bars.crossing = 'split'; })} /> {config.style === 'clasica' ? 'Dos tramos por barrote, que terminan contra el travesaño' : 'Dos tramos por barrote, que terminan contra el refuerzo'}</label>
+                <label className="radio"><input type="radio" name="crs" checked={config.bars.crossing === 'through'} onChange={() => setConfig((c) => { c.bars.crossing = 'through'; })} /> Barrote continuo que atraviesa {config.style === 'clasica' ? 'el travesaño' : 'el refuerzo'} (agujeros)</label>
               </fieldset>
             ) : (
-              <p className="hint">Sin refuerzo central: los barrotes van continuos de lateral a lateral, sin agujeros ni cortes al medio.</p>
+              <p className="hint">Sin refuerzo central: los barrotes van continuos de lado a lado, sin agujeros ni cortes al medio.</p>
             )}
             <fieldset>
-              <legend>Extremos de los barrotes (laterales)</legend>
-              <label className="radio"><input type="radio" name="end" checked={config.bars.ends === 'butt'} onChange={() => setConfig((c) => { c.bars.ends = 'butt'; })} /> A tope contra la cara interior del lateral</label>
-              <label className="radio"><input type="radio" name="end" checked={config.bars.ends === 'inserted'} onChange={() => setConfig((c) => { c.bars.ends = 'inserted'; })} /> Entran en un agujero del lateral, centrados y soldados</label>
+              <legend>{config.style === 'clasica' ? 'Extremos de los barrotes (planchuelas superior e inferior)' : 'Extremos de los barrotes (laterales)'}</legend>
+              {config.style === 'clasica' ? (
+                <label className="radio"><input type="radio" name="end" checked readOnly /> Entran en un agujero cuadrado de la planchuela, centrados y soldados</label>
+              ) : (
+                <>
+                  <label className="radio"><input type="radio" name="end" checked={config.bars.ends === 'butt'} onChange={() => setConfig((c) => { c.bars.ends = 'butt'; })} /> A tope contra la cara interior del lateral</label>
+                  <label className="radio"><input type="radio" name="end" checked={config.bars.ends === 'inserted'} onChange={() => setConfig((c) => { c.bars.ends = 'inserted'; })} /> Entran en un agujero del lateral, centrados y soldados</label>
+                </>
+              )}
             </fieldset>
             <div className="row">
-              <NumField label="Holgura por unión (por extremo)" suffix="mm" value={config.fabrication.jointGapMm} min={0} hint="Se descuenta en cada extremo que se suelda a tope." onChange={(v) => setConfig((c) => { c.fabrication.jointGapMm = v; })} />
+              <NumField label="Holgura por unión (por extremo)" suffix="mm" value={config.fabrication.jointGapMm} min={0} hint={config.style === 'clasica' ? 'Se descuenta en cada unión a tope del marco y del travesaño.' : 'Se descuenta en cada extremo que se suelda a tope.'} onChange={(v) => setConfig((c) => { c.fabrication.jointGapMm = v; })} />
               {((config.reinforcement.enabled && config.bars.crossing === 'through') || config.bars.ends === 'inserted' || config.frame.horizontalProfile === 'round') && (
-                <NumField label="Holgura del agujero" suffix="mm" value={config.fabrication.throughHoleClearanceMm} min={0} hint="Diámetro del agujero = caño + esta holgura." onChange={(v) => setConfig((c) => { c.fabrication.throughHoleClearanceMm = v; })} />
+                <NumField
+                  label="Holgura del agujero"
+                  suffix="mm"
+                  value={config.fabrication.throughHoleClearanceMm}
+                  min={0}
+                  hint={config.style === 'clasica' ? 'Lado del agujero cuadrado = barra + esta holgura.' : 'Diámetro del agujero = caño + esta holgura.'}
+                  onChange={(v) => setConfig((c) => { c.fabrication.throughHoleClearanceMm = v; })}
+                />
               )}
               {(config.bars.ends === 'inserted' || config.frame.horizontalProfile === 'round') && (
-                <NumField label="Freno de la punta" suffix="mm" value={config.fabrication.socketSetbackMm} min={0} hint="Cuánto se frena la punta antes de la cara opuesta del lateral." onChange={(v) => setConfig((c) => { c.fabrication.socketSetbackMm = v; })} />
+                <NumField label="Freno de la punta" suffix="mm" value={config.fabrication.socketSetbackMm} min={0} hint="Cuánto se frena la punta antes de la cara exterior del marco." onChange={(v) => setConfig((c) => { c.fabrication.socketSetbackMm = v; })} />
               )}
               {config.frame.horizontalProfile === 'round' && (
                 <NumField label="Margen del agujero de MS/MI al borde" suffix="mm" value={config.fabrication.horizontalEdgeMm} min={0} hint="Distancia desde el extremo superior/inferior del lateral hasta el borde del agujero (0,5 cm por defecto)." onChange={(v) => setConfig((c) => { c.fabrication.horizontalEdgeMm = v; })} />
               )}
             </div>
             {config.bars.ends === 'inserted' && design.derived && (
-              <p className="hint">El barrote entra {fmtMm(design.derived.lateralPenetrationMm)} en cada lateral por un agujero Ø{fmtMm(design.derived.lateralHoleMm)} y se frena a {fmtMm(config.fabrication.socketSetbackMm)} de la cara exterior, que queda lisa. Largo del barrote continuo: {fmtMm(W - 2 * (design.derived.frameInPlaneMm - design.derived.lateralPenetrationMm))}.</p>
+              <p className="hint">
+                El barrote entra {fmtMm(design.derived.barPenetrationMm)} en {config.style === 'clasica' ? 'cada planchuela horizontal' : 'cada lateral'} por un agujero de {holeSizeLabel(design.derived.barHoleMm, design.derived.barShape)} y se frena a {fmtMm(config.fabrication.socketSetbackMm)} de la cara exterior{config.style === 'clasica' ? '.' : ', que queda lisa.'} Largo del barrote continuo: {fmtMm((design.derived.barDirection === 'vertical' ? H : W) - 2 * (design.derived.frameInPlaneMm - design.derived.barPenetrationMm))}.
+              </p>
             )}
             {config.frame.horizontalProfile === 'round' && design.derived && (
-              <p className="hint">MS/MI entran {fmtMm(design.derived.lateralPenetrationMm)} en cada lateral por un agujero Ø{fmtMm(design.derived.lateralHoleMm)}, con el borde del agujero a {fmtMm(design.derived.horizontalEdgeMm)} mm del extremo del lateral. Largo de cada tramo: {fmtMm(W - 2 * (design.derived.frameInPlaneMm - design.derived.lateralPenetrationMm))}.</p>
+              <p className="hint">MS/MI entran {fmtMm(design.derived.barPenetrationMm)} en cada lateral por un agujero de {holeSizeLabel(design.derived.barHoleMm, design.derived.barShape)}, con el borde del agujero a {fmtMm(design.derived.horizontalEdgeMm)} mm del extremo del lateral. Largo de cada tramo: {fmtMm(W - 2 * (design.derived.frameInPlaneMm - design.derived.barPenetrationMm))}.</p>
             )}
             <p className="hint">{STRUCTURAL_DISCLAIMER}</p>
           </section>
@@ -399,13 +448,13 @@ export function App() {
           {/* 5 */}
           <section className="card">
             <h2>5. Parámetros de corte (obra)</h2>
-            <p className="muted small">Valen para todas las rejas: se compran los mismos caños y se cortan con el mismo disco.</p>
+            <p className="muted small">Valen para todas las rejas: se compran los mismos perfiles y se cortan con el mismo disco.</p>
             <div className="row">
               <NumField label="Disco de corte" suffix="mm" value={obra.cutting.kerfMm} min={0} onChange={(v) => setCutting((c) => { c.kerfMm = v; })} />
               <NumField label="Largo comercial" suffix="mm" value={obra.cutting.stockLengthMm} min={1} onChange={(v) => setCutting((c) => { c.stockLengthMm = v; })} />
             </div>
             <div className="row">
-              <NumField label="Refilado de punta" suffix="mm" value={obra.cutting.endTrimMm} min={0} hint="Se pierde en una punta de cada caño nuevo." onChange={(v) => setCutting((c) => { c.endTrimMm = v; })} />
+              <NumField label="Refilado de punta" suffix="mm" value={obra.cutting.endTrimMm} min={0} hint="Se pierde en una punta de cada barra nueva." onChange={(v) => setCutting((c) => { c.endTrimMm = v; })} />
               <NumField label="Largo mínimo para guardar un sobrante" suffix="mm" value={obra.cutting.minReusableMm} min={0} onChange={(v) => setCutting((c) => { c.minReusableMm = v; })} />
             </div>
             <label className="check">
@@ -422,19 +471,20 @@ export function App() {
             {errors.length === 0 && <Preview design={design} width={W} height={H} />}
             {errors.length === 0 && design.derived && (
               <dl className="facts">
-                <div><dt>Estilo</dt><dd>{config.style === 'clasica' ? 'Clásica (planchuela y hierro macizo)' : 'Moderna (caño estructural)'}</dd></div>
+                <div><dt>Estilo</dt><dd>{config.style === 'clasica' ? 'Clásica (planchuela y barra maciza cuadrada)' : 'Moderna (caño estructural)'}</dd></div>
                 <div><dt>Vano interior</dt><dd>{fmtMm(design.derived.innerWidthMm)} × {fmtMm(design.derived.innerHeightMm)}</dd></div>
                 <div><dt>Marco a la vista</dt><dd>{design.derived.horizontalRound
                   ? `Laterales ${fmtMm(design.derived.frameInPlaneMm)} · MS/MI caño redondo Ø${fmtMm(design.derived.frameHorizontalMm)}, agujeros a ${fmtMm(design.derived.horizontalEdgeMm)} mm del borde`
                   : `${fmtMm(design.derived.frameInPlaneMm)} (${fmtMm(design.derived.frameDepthMm)} de profundidad)`}</dd></div>
                 {design.derived.withReinforcement
-                  ? <div><dt>Refuerzo central</dt><dd>{fmtMm(design.derived.reinfInPlaneMm)} a la vista · sector {fmtMm(design.derived.sectorWidthMm)}{design.derived.horizontalRound ? ' · completo, igual que los laterales' : ''}</dd></div>
-                  : <div><dt>Refuerzo central</dt><dd>No lleva</dd></div>}
-                <div><dt>Extremos de los barrotes</dt><dd>{design.derived.barsInLateral
-                  ? `Entran ${fmtMm(design.derived.lateralPenetrationMm)} en cada lateral (agujero Ø${fmtMm(design.derived.lateralHoleMm)})`
+                  ? <div><dt>{config.style === 'clasica' ? 'Travesaño central' : 'Refuerzo central'}</dt><dd>{fmtMm(design.derived.reinfInPlaneMm)} a la vista · tramo libre {fmtMm(design.derived.sectorMm)}{design.derived.horizontalRound ? ' · completo, igual que los laterales' : ''}</dd></div>
+                  : <div><dt>{config.style === 'clasica' ? 'Travesaño central' : 'Refuerzo central'}</dt><dd>No lleva</dd></div>}
+                <div><dt>Barrotes</dt><dd>{barSizeLabel(design.derived.barSizeMm, design.derived.barShape)} · {design.distribution?.count ?? 0} · {design.derived.barDirection === 'vertical' ? 'verticales' : 'horizontales'}</dd></div>
+                <div><dt>Extremos de los barrotes</dt><dd>{design.derived.barsInserted
+                  ? `Entran ${fmtMm(design.derived.barPenetrationMm)} en ${config.style === 'clasica' ? 'cada planchuela horizontal' : 'cada lateral'} (agujero de ${holeSizeLabel(design.derived.barHoleMm, design.derived.barShape)})`
                   : 'A tope contra la cara interior del lateral'}</dd></div>
                 {design.derived.horizontalRound && (
-                  <div><dt>Extremos de MS/MI</dt><dd>Alojados {fmtMm(design.derived.lateralPenetrationMm)} en cada lateral (agujero Ø{fmtMm(design.derived.lateralHoleMm)})</dd></div>
+                  <div><dt>Extremos de MS/MI</dt><dd>Alojados {fmtMm(design.derived.barPenetrationMm)} en cada lateral (agujero de {holeSizeLabel(design.derived.barHoleMm, design.derived.barShape)})</dd></div>
                 )}
               </dl>
             )}
@@ -450,12 +500,12 @@ export function App() {
               <h2>7. Lista de materiales (obra)</h2>
               <button type="button" className="ghost no-print" onClick={() => print('materials')}>Imprimir lista</button>
             </div>
-            <p className="muted small">Consolidado de {result.valid.length} reja(s). Los caños se compran una vez para toda la obra.</p>
+            <p className="muted small">Consolidado de {result.valid.length} reja(s). Los perfiles se compran una vez para toda la obra.</p>
             <div className="table-wrap">
               <table className="grid">
                 <thead>
                   <tr>
-                    <th>Material</th><th>Largo comercial</th><th>Caños a comprar</th><th>Piezas</th><th>Suma de piezas</th>
+                    <th>Material</th><th>Largo comercial</th><th>Barras a comprar</th><th>Piezas</th><th>Suma de piezas</th>
                     <th>Total comprado</th><th>Pérdida por disco</th><th>Refilado</th><th>Sobrante</th><th>Aprovechamiento</th>
                   </tr>
                 </thead>
@@ -477,7 +527,7 @@ export function App() {
                 </tbody>
               </table>
             </div>
-            <p className="muted small">Aprovechamiento = suma de piezas ÷ material empleado (caños nuevos + sobrantes usados). El material empleado se reparte exactamente en piezas, pérdidas por disco, refilado y sobrante final.</p>
+            <p className="muted small">Aprovechamiento = suma de piezas ÷ material empleado (barras nuevas + sobrantes usados). El material empleado se reparte exactamente en piezas, pérdidas por disco, refilado y sobrante final.</p>
           </section>
 
           {/* 8 */}
@@ -536,7 +586,7 @@ export function App() {
               <>
                 <div className="row">
                   {result.materials.map((m) => (
-                    <NumField key={m.sectionKey} label={`Precio por caño: ${m.profileLabel}`} suffix="$" value={obra.budget.pricePerBar[m.sectionKey] ?? 0} min={0} onChange={(v) => setBudget((b) => { b.pricePerBar[m.sectionKey] = v; })} />
+                    <NumField key={m.sectionKey} label={`Precio por barra: ${m.profileLabel}`} suffix="$" value={obra.budget.pricePerBar[m.sectionKey] ?? 0} min={0} onChange={(v) => setBudget((b) => { b.pricePerBar[m.sectionKey] = v; })} />
                   ))}
                 </div>
                 <div className="row">
@@ -568,7 +618,7 @@ export function App() {
                     <div>Consumibles: {fmtMoney(budget.consumables)} · Mano de obra: {fmtMoney(budget.laborSubtotal)}</div>
                     <div className="total">Total de la obra: <b>{fmtMoney(budget.total)}</b></div>
                     {budget.partial && <div className="warn small">Presupuesto parcial: falta precio de {budget.missingPrices.join('; ')}. El total no los incluye.</div>}
-                    {!budget.partial && budget.missingPrices.length > 0 && <div className="warn small">Sin caños a comprar de: {budget.missingPrices.join('; ')}.</div>}
+                    {!budget.partial && budget.missingPrices.length > 0 && <div className="warn small">Sin barras a comprar de: {budget.missingPrices.join('; ')}.</div>}
                   </div>
                 ) : <p className="empty">Cargá precios para ver el presupuesto. Mientras tanto se muestran solo cantidades y longitudes.</p>}
               </>
@@ -597,7 +647,7 @@ export function App() {
 
       <footer className="foot" data-area="screen">
         <button type="button" className="link" onClick={() => { if (confirm('¿Restaurar todos los valores iniciales? Se conservan los sobrantes guardados.')) { setObra(createObra()); setCatalog(DEFAULT_CATALOG); } }}>Restaurar valores iniciales</button>
-        <span className="muted small">Marco a la vista {frameP ? fmtMm(inPlaneDim(frameP, config.frame.orientation)) : '—'}{frameP ? `, ${fmtMm(depthDim(frameP, config.frame.orientation))} de profundidad` : ''}{design.derived?.horizontalRound && round ? `, con MS/MI de caño redondo Ø${fmtMm(round.odMm)} a ${fmtMm(design.derived.horizontalEdgeMm)} mm del borde` : ''}.</span>
+        <span className="muted small">Marco a la vista {frameP ? fmtMm(inPlaneDim(frameP, config.frame.orientation)) : '—'}{frameP ? `, ${fmtMm(depthDim(frameP, config.frame.orientation))} de profundidad` : ''}{design.derived?.horizontalRound && bar ? `, con MS/MI de caño redondo Ø${fmtMm(bar.odMm)} a ${fmtMm(design.derived.horizontalEdgeMm)} mm del borde` : ''}.</span>
       </footer>
     </div>
   );

@@ -28,23 +28,23 @@ export function Preview({ design, width, height }: { design: Design; width: numb
   const pfH = dv.frameHorizontalMm;
   /** Borde superior del caño redondo de MS (0 si MS/MI son rectangulares). */
   const railTop = dv.horizontalRound
-    ? dv.horizontalEdgeMm + (dv.lateralHoleMm - pfH) / 2
+    ? dv.horizontalEdgeMm + (dv.barHoleMm - pfH) / 2
     : 0;
-  /** Borde interior del vano, donde arrancan los barrotes. */
-  const innerTop = dv.horizontalRound ? railTop + pfH : pfH;
   const horizontalFill = dv.horizontalRound ? FILL.bar : FILL['frame-top'];
+  const topLabelY = dv.horizontalRound ? railTop + pfH * 0.5 : pfH * 0.5;
+  const bottomLabelY = dv.horizontalRound ? H - railTop - pfH * 0.5 : H - pfH * 0.5;
   const rcx = W / 2;
   const tick = k * 0.5;
 
   const line = (x1: number, y1: number, x2: number, y2: number) => (
     <line x1={x1} x2={x2} y1={y1} y2={y2} stroke={DIM} strokeWidth={1} vectorEffect="non-scaling-stroke" />
   );
-  const hDim = (x1: number, x2: number, y: number, text: string, key: string) => (
+  const hDim = (x1: number, x2: number, y: number, text: string, key: string, small = false) => (
     <g key={key} className="dim" fill={INK}>
       {line(x1, y, x2, y)}
       {line(x1, y - tick, x1, y + tick)}
       {line(x2, y - tick, x2, y + tick)}
-      <text x={(x1 + x2) / 2} y={y - k * 0.6} textAnchor="middle" fontSize={k * 1.5}>{text}</text>
+      <text x={(x1 + x2) / 2} y={y - k * 0.6} textAnchor="middle" fontSize={small ? k * 1.1 : k * 1.5}>{text}</text>
     </g>
   );
   const vDim = (y1: number, y2: number, x: number, text: string, key: string, small = false) => (
@@ -57,7 +57,10 @@ export function Preview({ design, width, height }: { design: Design; width: numb
   );
 
   const labelGaps = dist.count <= 14;
-  const gapX = pf + dv.sectorWidthMm / 2;
+  const vertical = dv.barDirection === 'vertical';
+  /** Línea de cotas de las separaciones: dentro del vano, sobre el eje perpendicular a los barrotes. */
+  const gapX = pf + dv.sectorMm / 2;
+  const gapY = pf + dv.sectorMm / 2;
 
   return (
     <svg
@@ -76,23 +79,40 @@ export function Preview({ design, width, height }: { design: Design; width: numb
         );
       })}
       {/* etiquetas de piezas del marco y refuerzo */}
-      <text x={W / 2} y={railTop + pfH * 0.5 + k * 0.5} textAnchor="middle" fontSize={Math.min(k * 1.2, pfH * 0.7)} fill={INK} fontWeight={700} className="plabel">MS</text>
-      <text x={W / 2} y={H - railTop - pfH * 0.5 + k * 0.5} textAnchor="middle" fontSize={Math.min(k * 1.2, pfH * 0.7)} fill={INK} fontWeight={700} className="plabel">MI</text>
+      <text x={W / 2} y={topLabelY + k * 0.5} textAnchor="middle" fontSize={Math.min(k * 1.2, pfH * 0.7)} fill={INK} fontWeight={700} className="plabel">MS</text>
+      <text x={W / 2} y={bottomLabelY + k * 0.5} textAnchor="middle" fontSize={Math.min(k * 1.2, pfH * 0.7)} fill={INK} fontWeight={700} className="plabel">MI</text>
       {dv.withReinforcement && (
-        <text x={rcx} y={H / 2} textAnchor="middle" fontSize={Math.min(k * 1.2, dv.reinfInPlaneMm * 0.7)} fill={INK} fontWeight={700} className="plabel" transform={`rotate(-90 ${rcx} ${H / 2})`}>RC</text>
+        <text
+          x={rcx}
+          y={H / 2}
+          textAnchor="middle"
+          fontSize={Math.min(k * 1.2, dv.reinfInPlaneMm * 0.7)}
+          fill={INK}
+          fontWeight={700}
+          className="plabel"
+          transform={vertical ? undefined : `rotate(-90 ${rcx} ${H / 2})`}
+        >RC</text>
       )}
 
-      {labelGaps && dist.topsMm.map((top, i) => {
-        const y0 = i === 0 ? innerTop : dist.topsMm[i - 1] + dv.barOdMm;
-        return vDim(y0, top, gapX, fmtNum(Math.round(dist.gapMm * 10) / 10), `g${i}`, true);
+      {labelGaps && dist.positionsMm.map((pos, i) => {
+        if (vertical) {
+          const x0 = i === 0 ? dist.startMm : dist.positionsMm[i - 1] + dv.barSizeMm;
+          return hDim(x0, pos, gapY, fmtNum(Math.round(dist.gapMm * 10) / 10), `g${i}`, true);
+        }
+        const y0 = i === 0 ? dist.startMm : dist.positionsMm[i - 1] + dv.barSizeMm;
+        return vDim(y0, pos, gapX, fmtNum(Math.round(dist.gapMm * 10) / 10), `g${i}`, true);
       })}
-      {labelGaps && vDim(dist.topsMm[dist.count - 1] + dv.barOdMm, H - innerTop, gapX, fmtNum(Math.round(dist.gapMm * 10) / 10), 'glast', true)}
+      {labelGaps && (vertical
+        ? hDim(dist.positionsMm[dist.count - 1] + dv.barSizeMm, dist.startMm + dist.spanMm, gapY, fmtNum(Math.round(dist.gapMm * 10) / 10), 'glast', true)
+        : vDim(dist.positionsMm[dist.count - 1] + dv.barSizeMm, dist.startMm + dist.spanMm, gapX, fmtNum(Math.round(dist.gapMm * 10) / 10), 'glast', true))}
 
       {hDim(0, W, H + k * 3, `Ancho exterior ${fmtMm(W)}`, 'w')}
       {hDim(pf, W - pf, H + k * 6, `Ancho útil interior ${fmtMm(dv.innerWidthMm)}`, 'wi')}
       {vDim(0, H, W + k * 3, `Alto exterior ${fmtMm(H)}`, 'h')}
-      {vDim(innerTop, H - innerTop, W + k * 6.5, `Alto útil ${fmtMm(dv.innerHeightMm)}`, 'hi')}
-      {dv.withReinforcement && hDim(0, rcx, -k * 1.8, `Refuerzo al centro: ${fmtMm(W / 2)}`, 'rc')}
+      {vDim(dist.startMm, dist.startMm + dist.spanMm, W + k * 6.5, `Alto útil ${fmtMm(dv.innerHeightMm)}`, 'hi')}
+      {dv.withReinforcement && (vertical
+        ? vDim(0, H / 2, -k * 1.8, `Travesaño al centro: ${fmtMm(H / 2)}`, 'rc')
+        : hDim(0, rcx, -k * 1.8, `Refuerzo al centro: ${fmtMm(W / 2)}`, 'rc'))}
     </svg>
   );
 }

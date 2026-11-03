@@ -1,3 +1,4 @@
+import { sectionUnit } from './profiles';
 import type { CuttingPlan, Offcut } from './types';
 
 /**
@@ -14,6 +15,7 @@ export function applyPlanToInventory(
   const used = new Set<string>();
   const added: Offcut[] = [];
   for (const s of plan.sections) {
+    const unit = sectionUnit(s.sectionKey);
     for (const b of s.bins) {
       if (b.source.kind === 'offcut' && b.source.offcutId) used.add(b.source.offcutId);
       if (b.leftoverReusable && b.leftoverMm > 0) {
@@ -22,7 +24,7 @@ export function applyPlanToInventory(
           sectionKey: s.sectionKey,
           profileLabel: s.profileLabel,
           lengthMm: b.leftoverMm,
-          origin: `${jobName} — ${b.source.kind === 'new' ? 'Caño' : 'Sobrante'} ${b.index}`,
+          origin: `${jobName} — ${b.source.kind === 'new' ? (unit === 'barra' ? 'Barra' : 'Caño') : 'Sobrante'} ${b.index}`,
           createdAt: now,
         });
       }

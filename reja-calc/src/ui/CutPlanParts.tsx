@@ -1,15 +1,16 @@
-import { fmtMm } from '../core/format';
+import { fmtMm, fmtNum } from '../core/format';
 import type { BinPlan } from '../core/types';
 
-/** Nombre legible de un caño del plan (comercial o sobrante de inventario). */
-export const binName = (b: BinPlan) => (b.source.kind === 'new' ? `Caño comercial ${b.index}` : `Sobrante ${b.index}`);
+/** Nombre legible de un tramo del plan (comercial o sobrante de inventario). */
+export const binName = (b: BinPlan, unit: 'caño' | 'barra' = 'caño') =>
+  b.source.kind === 'new' ? `${unit === 'barra' ? 'Barra' : 'Caño'} comercial ${b.index}` : `Sobrante ${b.index}`;
 
 /**
  * Barra proporcional de un caño: refilado, piezas, pérdidas de disco y sobrante.
  * La usan la vista de la web y la hoja de taller (que es la que se imprime y la
  * que se rasteriza para el PDF), así el plan de cortes se ve igual en los tres lados.
  */
-export function BinBar({ bin, activeRejaId }: { bin: BinPlan; activeRejaId?: string }) {
+export function BinBar({ bin, activeRejaId, unit = 'caño' }: { bin: BinPlan; activeRejaId?: string; unit?: 'caño' | 'barra' }) {
   const total = bin.source.lengthMm;
   const pct = (mm: number) => `${(mm / total) * 100}%`;
   const segs: JSX.Element[] = [];
@@ -20,7 +21,7 @@ export function BinBar({ bin, activeRejaId }: { bin: BinPlan; activeRejaId?: str
     const label = it.localId ?? it.pieceId;
     segs.push(
       <div key={it.pieceId} className={`seg seg-piece${other ? ' seg-other' : ''}`} style={{ flex: `0 1 ${pct(it.lengthMm)}` }} title={`${label}: ${fmtMm(it.lengthMm)}`}>
-        <b>{label}</b>{wide && <small>{Math.round(it.lengthMm * 10) / 10}</small>}
+        <b>{label}</b>{wide && <small>{fmtNum(it.lengthMm)}</small>}
       </div>,
     );
   });
@@ -31,7 +32,7 @@ export function BinBar({ bin, activeRejaId }: { bin: BinPlan; activeRejaId?: str
       {bin.leftoverMm / total > 0.08 && <small>{Math.round(bin.leftoverMm)}</small>}
     </div>,
   );
-  return <div className="bin-bar" role="img" aria-label={`${binName(bin)}: ${bin.items.map((i) => i.localId ?? i.pieceId).join(', ')}`}>{segs}</div>;
+  return <div className="bin-bar" role="img" aria-label={`${binName(bin, unit)}: ${bin.items.map((i) => i.localId ?? i.pieceId).join(', ')}`}>{segs}</div>;
 }
 
 /** Referencia de los colores de las barras. */

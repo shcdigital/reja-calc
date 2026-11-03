@@ -5,16 +5,24 @@
 
 // ───────────────────────── Perfiles ─────────────────────────
 
+/** Forma de la sección de un barrote. */
+export type BarShape = 'round' | 'square';
+
+/**
+ * Perfil de barrote. Aunque el tipo conserva el nombre histórico `RoundProfile`,
+ * representa tanto caños redondos como barras macizas redondas o cuadradas.
+ */
 export interface RoundProfile {
   id: string;
   kind: 'round';
   label: string;
   /** Diámetro exterior (mm) o lado (mm) si es cuadrado. Configurable: el real comercial puede variar. */
   odMm: number;
+  /** Espesor de pared de un caño. En barras macizas no se usa para calcular la sección. */
   thicknessMm: number;
   /** true si el perfil es macizo (hierro macizo): no es un caño hueco. */
   solid?: boolean;
-  /** true si el perfil macizo es cuadrado (lado = odMm). */
+  /** true si el perfil es cuadrado (lado = odMm). */
   square?: boolean;
 }
 
@@ -33,7 +41,9 @@ export interface RectProfile {
 export type Profile = RoundProfile | RectProfile;
 
 export interface Catalog {
+  /** Perfiles de barrote: caños redondos y barras macizas (redondas o cuadradas). */
   round: RoundProfile[];
+  /** Perfiles de marco/refuerzo: caños rectangulares y planchuelas macizas. */
   rect: RectProfile[];
 }
 
@@ -96,7 +106,8 @@ export interface ProjectConfig {
   style: RejaStyle;
   productKind: ProductKind;
   window: { widthMm: number; heightMm: number };
-  roundProfileId: string;
+  /** Perfil de los barrotes: caño redondo (moderna) o barra maciza cuadrada (clásica). */
+  barProfileId: string;
   frame: {
     profileId: string;
     orientation: Orientation;
@@ -128,7 +139,7 @@ export interface ProjectConfig {
     kerfMm: number;
     /** Largo comercial de los caños. */
     stockLengthMm: number;
-    /** Largo que se refila (se pierde) en la punta de cada caño comercial nuevo. */
+    /** Largo que se refila (se pierde) en la punta de cada barra comercial nueva. */
     endTrimMm: number;
     /** Holgura diametral de los agujeros pasantes (refuerzo central y laterales). */
     throughHoleClearanceMm: number;
@@ -151,7 +162,7 @@ export interface ProjectConfig {
 
 export interface CostsConfig {
   enabled: boolean;
-  /** Precio por caño comercial, por sección (clave de sección → precio). */
+  /** Precio por barra/perfil comercial, por sección (clave de sección → precio). */
   pricePerBar: Record<string, number | undefined>;
   discsCost: number;
   paintCost: number;
@@ -212,10 +223,14 @@ export interface BarDistribution {
   count: number;
   /** Separación libre resultante (entre superficies). Es uniforme, incluidos los bordes con el marco. */
   gapMm: number;
-  /** Alto interior disponible. */
-  innerHeightMm: number;
-  /** Y (desde el borde superior exterior de la reja) del borde superior de cada barrote. */
-  topsMm: number[];
+  /** Dirección de los barrotes: horizontal (moderna) o vertical (clásica). */
+  direction: 'horizontal' | 'vertical';
+  /** Dimensión interior disponible sobre el eje de distribución (alto si son horizontales, ancho si son verticales). */
+  spanMm: number;
+  /** Coordenada del borde interior del vano sobre el eje de distribución. */
+  startMm: number;
+  /** Coordenada inicial de cada barrote sobre el eje de distribución (Y si son horizontales, X si son verticales). */
+  positionsMm: number[];
   /** Alternativas sugeridas si no se pudo cumplir lo pedido. */
   alternatives: { count: number; gapMm: number }[];
   /** true si se cumplen ambas condiciones: gap ≤ máximo deseado y gap ≥ mínimo. */
@@ -239,14 +254,20 @@ export interface DesignDerived {
   withReinforcement: boolean;
   reinfInPlaneMm: number;
   reinfDepthMm: number;
-  sectorWidthMm: number;
-  /** Si los barrotes entran en un agujero del lateral (false = a tope contra la cara interior). */
-  barsInLateral: boolean;
-  /** Cuánto entran en cada lateral los barrotes alojados o los MS/MI redondos, desde su cara interior (0 si nada entra). */
-  lateralPenetrationMm: number;
-  /** Diámetro de los agujeros de los laterales (barrotes alojados y/o MS/MI redondos); 0 si no hay agujeros. */
-  lateralHoleMm: number;
-  barOdMm: number;
+  /** Largo libre de barrote a cada lado del refuerzo (o mitad del vano si no hay refuerzo). */
+  sectorMm: number;
+  /** Si los barrotes entran en un agujero del marco (false = a tope contra la cara interior). */
+  barsInserted: boolean;
+  /** Cuánto entra cada barrote en el marco desde su cara interior (0 si nada entra). */
+  barPenetrationMm: number;
+  /** Medida del agujero del marco para los barrotes (diámetro o lado + holgura); 0 si no hay agujeros. */
+  barHoleMm: number;
+  /** Dirección de los barrotes del diseño. */
+  barDirection: 'horizontal' | 'vertical';
+  /** Forma de la sección de los barrotes. */
+  barShape: BarShape;
+  /** Diámetro o lado de los barrotes. */
+  barSizeMm: number;
   barSectionKey: string;
   frameSectionKey: string;
   reinfSectionKey: string;
@@ -286,7 +307,7 @@ export interface BinPlan {
   index: number;
   source: StockSource;
   items: CutItem[];
-  /** Largo refilado en la punta (solo caños nuevos). */
+  /** Largo refilado en la punta (solo barras nuevas). */
   trimLossMm: number;
   piecesLengthMm: number;
   kerfLossMm: number;
@@ -303,7 +324,7 @@ export interface SectionPlan {
   bins: BinPlan[];
   /** Cantidad de caños comerciales nuevos a comprar. */
   newBarsCount: number;
-  /** Cota inferior teórica de caños nuevos (informativa). */
+  /** Cota inferior teórica de barras nuevas (informativa). */
   lowerBoundBars: number;
   /** true si se demostró que no existe una solución con menos caños. */
   provenOptimal: boolean;
