@@ -710,17 +710,23 @@ export function App() {
                 type="button"
                 className="ghost"
                 disabled={!result.hasAnyValid}
-                onClick={() => download(obraFileName(obra, 'dxf'), buildObraDxf(obra, result), 'application/dxf')}
+                onClick={() => {
+                  download(obraFileName(obra, 'dxf'), buildObraDxf(obra, result), 'application/dxf');
+                  setFlash(`DXF exportado con ${result.rejas.length} reja(s) de la obra.`);
+                }}
               >Planos DXF (toda la obra)</button>
               <button
                 type="button"
                 className="ghost"
                 disabled={errors.length > 0 || design.layout.length === 0}
-                onClick={() => download(
-                  `${slugify(obra.name ? `${obra.name}-${active.name}` : active.name)}.dxf`,
-                  buildDesignDxf(active.name, design, W, H, active),
-                  'application/dxf',
-                )}
+                onClick={() => {
+                  download(
+                    `${slugify(obra.name ? `${obra.name}-${active.name}` : active.name)}.dxf`,
+                    buildDesignDxf(active.name, design, W, H, active),
+                    'application/dxf',
+                  );
+                  setFlash(`DXF de «${active.name}» exportado.`);
+                }}
               >Plano DXF (reja activa)</button>
               <button type="button" className="ghost" disabled={!result.plan} onClick={() => result.plan && download('cortes.csv', cutListCsv(result.pieces, result.plan))}>Cortes (CSV)</button>
               <button type="button" className="ghost" onClick={() => download('materiales.csv', materialsCsv(result.materials))}>Materiales (CSV)</button>

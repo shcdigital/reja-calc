@@ -58,6 +58,23 @@ describe('DXF: exportación e importación', () => {
     expect(dxf).toContain('$EXTMAX\r\n10\r\n3390');
   });
 
+  it('incluye en el DXF de toda la obra las rejas con errores', () => {
+    const base = createObra();
+    const good = { ...base.rejas[0], id: 'R1', name: 'Reja buena', config: makeConfig() };
+    const long = { ...base.rejas[0], id: 'R2', name: 'Reja larga', config: makeConfig({ w: 6020 }) };
+    const empty = { ...base.rejas[0], id: 'R3', name: 'Reja sin espacio', config: makeConfig({ w: 30, h: 30 }) };
+    const obra = { ...base, rejas: [good, long, empty], activeRejaId: 'R1' };
+    const result = computeObra(obra, catalog);
+
+    expect(result.valid.map((r) => r.reja.name)).toEqual(['Reja buena']);
+    const dxf = buildObraDxf(obra, result);
+    expect(dxf).toContain('Reja buena - 1.500 x 600 mm');
+    expect(dxf).toContain('Reja larga - 6.020 x 600 mm');
+    expect(dxf).toContain('Reja sin espacio - 30 x 30 mm');
+    expect(dxf).toContain('REVISAR ERRORES EN LA CALCULADORA');
+    expect(dxf).toContain('SIN DESPIECE - REVISAR ERRORES');
+  });
+
   it('embebe la obra completa para poder reimportar el DXF', () => {
     const base = createObra();
     const obra = {

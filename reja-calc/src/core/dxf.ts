@@ -25,6 +25,8 @@ export interface DxfReja {
   widthMm: number;
   heightMm: number;
   design: Design;
+  /** Aviso opcional para planos de rejas con errores (se dibujan igual si tienen despiece). */
+  note?: string;
 }
 
 /**
@@ -246,15 +248,25 @@ function addReja(
 
   const toCadY = (r: LayoutRect) => top - r.y - r.h;
 
-  for (const r of design.layout) {
-    const x = baseX + r.x;
-    const y = toCadY(r);
-    addRect(g, layerFor(r.type), x, y, r.w, r.h);
-    addText(g, 'TEXTOS', r.pieceId, x + r.w / 2, y + r.h / 2, textHeight(r.w, r.h), r.h > r.w ? 90 : 0);
-    box.minX = Math.min(box.minX, x);
-    box.maxX = Math.max(box.maxX, x + r.w);
-    box.minY = Math.min(box.minY, y);
-    box.maxY = Math.max(box.maxY, y + r.h);
+  if (design.layout.length === 0) {
+    // Reja con errores que impiden generar el despiece: se deja el contorno exterior.
+    if (W > 0 && H > 0) {
+      addRect(g, 'MARCO', baseX, 0, W, H);
+      addText(g, 'TEXTOS', 'SIN DESPIECE - REVISAR ERRORES', baseX + W / 2, H / 2, Math.max(12, nameHeight * 0.7));
+    }
+    box.maxX = Math.max(box.maxX, baseX + W);
+    box.maxY = Math.max(box.maxY, top);
+  } else {
+    for (const r of design.layout) {
+      const x = baseX + r.x;
+      const y = toCadY(r);
+      addRect(g, layerFor(r.type), x, y, r.w, r.h);
+      addText(g, 'TEXTOS', r.pieceId, x + r.w / 2, y + r.h / 2, textHeight(r.w, r.h), r.h > r.w ? 90 : 0);
+      box.minX = Math.min(box.minX, x);
+      box.maxX = Math.max(box.maxX, x + r.w);
+      box.minY = Math.min(box.minY, y);
+      box.maxY = Math.max(box.maxY, y + r.h);
+    }
   }
 
   const nameY = top + nameHeight * 1.8;
@@ -262,14 +274,21 @@ function addReja(
   box.maxY = Math.max(box.maxY, nameY + nameHeight / 2);
   box.maxX = Math.max(box.maxX, baseX + W);
 
-  addHorizontalDimension(g, baseX, baseX + W, -DIM_OFFSET_MM, `${fmtNum(W)} mm`);
-  addVerticalDimension(g, 0, H, baseX + W + DIM_OFFSET_MM, `${fmtNum(H)} mm`);
-  box.minY = Math.min(box.minY, -DIM_OFFSET_MM - 20);
-  box.maxX = Math.max(box.maxX, baseX + W + DIM_OFFSET_MM + 30);
+  if (W > 0 && H > 0) {
+    addHorizontalDimension(g, baseX, baseX + W, -DIM_OFFSET_MM, `${fmtNum(W)} mm`);
+    addVerticalDimension(g, 0, H, baseX + W + DIM_OFFSET_MM, `${fmtNum(H)} mm`);
+    box.minY = Math.min(box.minY, -DIM_OFFSET_MM - 20);
+    box.maxX = Math.max(box.maxX, baseX + W + DIM_OFFSET_MM + 30);
+  }
+
+  if (part.note) {
+    addText(g, 'TEXTOS', part.note, baseX + W / 2, -DIM_OFFSET_MM - 26, 12);
+    box.minY = Math.min(box.minY, -DIM_OFFSET_MM - 34);
+  }
 
   // Una referencia visual del estilo del plano, útil al abrirlo en CAD.
-  addText(g, 'TEXTOS', 'UNIDADES: mm', baseX, -DIM_OFFSET_MM - 26, 10);
-  box.minY = Math.min(box.minY, -DIM_OFFSET_MM - 32);
+  addText(g, 'TEXTOS', 'UNIDADES: mm', baseX, -DIM_OFFSET_MM - (part.note ? 44 : 26), 10);
+  box.minY = Math.min(box.minY, -DIM_OFFSET_MM - (part.note ? 50 : 32));
 }
 
 /**
@@ -390,10 +409,9 @@ export function buildRejasDxf(rejas: DxfReja[], payload?: DxfPayload): string {
 
   let cursorX = 0;
   for (const reja of rejas) {
-    if (!reja.design.derived || !reja.design.distribution) continue;
     g(999, `REJA: ${dxfText(reja.name)}`);
     addReja(g, reja, cursorX, box);
-    cursorX += reja.widthMm + GAP_MM;
+    cursorX += Math.max(reja.widthMm, 1) + GAP_MM;
   }
   if (cursorX > 0) cursorX -= GAP_MM;
   box.maxX = Math.max(box.maxX, cursorX);
@@ -413,14 +431,19 @@ export function buildRejasDxf(rejas: DxfReja[], payload?: DxfPayload): string {
   return out.join(CRLF);
 }
 
-/** DXF de la obra completa: todas las rejas válidas, lado a lado, con metadatos de la obra. */
+/**
+ * DXF de la obra completa: todas las rejas, lado a lado, con metadatos de la obra.
+ * Las rejas con errores también se incluyen: si tienen despiece se dibujan, y si no
+ * se deja su contorno exterior con la leyenda «SIN DESPIECE - REVISAR ERRORES».
+ */
 export function buildObraDxf(obra: Obra, result: ObraResult): string {
   return buildRejasDxf(
-    result.valid.map((r) => ({
+    result.rejas.map((r) => ({
       name: r.reja.name,
       widthMm: r.config.window.widthMm,
       heightMm: r.config.window.heightMm,
       design: r.design,
+      note: r.error ? 'REVISAR ERRORES EN LA CALCULADORA' : undefined,
     })),
     { format: 'reja-calc/dxf', version: 1, kind: 'obra', obra },
   );
